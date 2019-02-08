@@ -1,1 +1,1 @@
-# intclass
+# CS696 Team Amazon
