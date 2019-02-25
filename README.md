@@ -1,1 +1,1 @@
-# intclass
+# Fast Intent Classification
