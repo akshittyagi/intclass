@@ -1,13 +1,13 @@
 import os
 import sklearn
 
-class sentence_embedder(object):
+class SentenceEmbedder(object):
 
     def __init__(self):
         pass
     
-    def train(self):
+    def train(self, train, dev):
         pass 
     
-    def test(self):
+    def test(self, test):
         pass
