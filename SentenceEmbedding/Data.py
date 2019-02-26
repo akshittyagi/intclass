@@ -54,6 +54,9 @@ class DataCleaner(object):
     def clean_data(self, path):
         tr, dev, tst = [], [], []
         if self.dataset_type == 'fb':
+            '''
+            (<tokenized sent>, <top intent>)
+            '''
             train = open(path+"train.tsv", 'r')
             test = open(path+"test.tsv", 'r')
             for line in train:
@@ -68,6 +71,13 @@ class DataCleaner(object):
                 tst.append((cleaned_line, curr_y)) 
             N = len(tr)
             tr, dev = tr[:(0.8*N)], tr[(0.8*N):]
+        
+        if self.dataset_type == 'atis':
+            '''
+            (<tokenized sent>, <top intent>)
+            '''
+            pass
+            
         return tr, dev, tst
 
 
