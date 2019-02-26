@@ -69,23 +69,22 @@ class DataCleaner(object):
                 cleaned_line = self.cleanLine(line[1])
                 curr_y = fb_top_intent(curr_line[2])
                 tst.append((cleaned_line, curr_y)) 
-            N = len(tr)
-            tr, dev = tr[:(0.8*N)], tr[(0.8*N):]
+            tr, dev = split_data(tr)
         
         if self.dataset_type == 'atis':
             '''
             (<tokenized sent>, <top intent>)
             '''
             pass
-            
+
         return tr, dev, tst
 
-
-def split_data(train, dev, test):
-    pass
+def split_data(tr, split=0.8):
+    N = len(tr)
+    tr, dev = tr[:(split*N)], tr[(split*N):]
+    return tr, dev
 
 def data_loader(path, dataset='fb'):
     dataCleaner = DataCleaner(tokenization_type=1, dataset=dataset)
     data_tr, data_dev, data_tst = dataCleaner.clean_data(path)
-    
-    return [], [], []
+    return data_tr, data_dev, data_tst
