@@ -4,10 +4,13 @@ import string
 from nltk.tokenize import word_tokenize
 import sklearn
 
+from utils import fb_top_intent
+
 class DataCleaner(object):
 
-    def __init__(self, tokenization_type):
+    def __init__(self, tokenization_type, dataset='fb'):
         self.token_type = tokenization_type 
+        self.dataset_type = dataset
 
     def filterOutPunctuation(self, word):
         punctuationDict = {ch: '' for ch in string.punctuation}
@@ -43,19 +46,29 @@ class DataCleaner(object):
         return " ".join(words)
 
     def clean_data(self, path):
-        fil = open('r', path)
-        lis = []
-        for line in fil:
-            #TODO: Add X, y differentiation
-            cleaned_line = self.cleanLine(line)
-            lis.append(cleaned_line)
-        return lis
+        tr, dev, tst = [], [], []
+        if self.dataset_type == 'fb':
+            train = open(path+"train.tsv", 'r')
+            test = open(path+"test.tsv", 'r')
+            for line in train:
+                curr_line = line.split("\t")
+                cleaned_line = self.cleanLine(line[1])
+                curr_y = fb_top_intent(curr_line[2])
+                tr.append((cleaned_line, curr_y))
+            for line in test:
+                curr_line = line.split("\t")
+                cleaned_line = self.cleanLine(line[1])
+                curr_y = fb_top_intent(curr_line[2])
+                tst.append((cleaned_line, curr_y)) 
+            N = len(tr)
+            tr, dev = tr[:(0.8*N)], tr[(0.8*N):]
+        return tr, dev, tst
 
 def split_data(train, dev, test):
     pass
 
-def data_loader(path):
-    dataCleaner = DataCleaner(tokenization_type=1)
-    data = dataCleaner.clean_data(path)
+def data_loader(path, dataset='fb'):
+    dataCleaner = DataCleaner(tokenization_type=1, dataset=dataset)
+    data_tr, data_dev, data_tst = dataCleaner.clean_data(path)
     
     return [], [], []
