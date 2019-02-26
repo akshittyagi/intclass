@@ -1,5 +1,6 @@
 import os
 import string
+import re
 
 from nltk.tokenize import word_tokenize
 import sklearn
@@ -34,6 +35,11 @@ class DataCleaner(object):
         else:
             return line.split()
 
+    def applyRegEx(self, line):
+        regex = "([@][A-Za-z0-9]+)|([^0-9A-Za-z# \t])|(\w+:\/\/\S+)|(#[^A-Za-z0-9]+)"
+        reg_line = re.sub(regex, " ", line).split()
+        return reg_line
+
     def cleanLine(self, line):
         ''' 
         1. Removes punctuations
@@ -63,6 +69,7 @@ class DataCleaner(object):
             N = len(tr)
             tr, dev = tr[:(0.8*N)], tr[(0.8*N):]
         return tr, dev, tst
+
 
 def split_data(train, dev, test):
     pass
