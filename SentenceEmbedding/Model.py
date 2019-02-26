@@ -1,4 +1,7 @@
 import numpy as np
+import torch
+import torch.optim as optim
+import torch.nn.functional as F
 
 from Embeddings import Embed
 from Neural import SingleLayer
@@ -12,6 +15,8 @@ class SentenceEmbedder(object):
         self.dim = dim
         self.min_count = min_count
         self.epochs = epochs
+        self.neural_epochs = epochs
+        self.learning_rate = 1e-4
 
     def organise_data(self):
         zipped_data_tr = zip(*self.tr)
@@ -42,6 +47,24 @@ class SentenceEmbedder(object):
         X_embed = self.generate_embeddings()
         X_embed = np.array(X_embed)
         y = np.array(self.y)
-    
+        single_layer = SingleLayer(self.dim, len(self.hashed_classes))
+        device = ""
+        if torch.cuda.is_available():
+            device = torch.device('cuda')
+        else:
+            device = torch.device('cpu')
+        single_layer.to(device)
+        optimizer = optim.SGD(single_layer.parameters(), lr=self.learning_rate)
+        for epoch in range(self.neural_epochs):
+            for idx, x in enumerate(X_embed):
+                single_layer.train()
+                x = x.to(device)
+                y = y.to(device)
+                scores = single_layer(x)
+                loss = F.cross_entropy(scores, y)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
     def test(self, test):
         pass
