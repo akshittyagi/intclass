@@ -63,12 +63,12 @@ class DataCleaner(object):
             test = open(path + "test.tsv", 'r')
             for line in train:
                 curr_line = line.split("\t")
-                cleaned_line = self.cleanLine(line[1])
+                cleaned_line = self.cleanLine(curr_line[1])
                 curr_y = fb_top_intent(curr_line[2])
                 tr.append((cleaned_line, curr_y))
             for line in test:
                 curr_line = line.split("\t")
-                cleaned_line = self.cleanLine(line[1])
+                cleaned_line = self.cleanLine(curr_line[1])
                 curr_y = fb_top_intent(curr_line[2])
                 tst.append((cleaned_line, curr_y))
             tr, dev = split_data(tr)
@@ -77,28 +77,28 @@ class DataCleaner(object):
             '''
             (<tokenized sent>, <top intent>)
             '''
-            tr = read_json(path + 'atistrain.json')
-            dev = read_json(path + 'atisdev.json')
-            tst = read_json(path + 'atistest.json')
+            tr = self.read_json(path + 'atistrain.json')
+            dev = self.read_json(path + 'atisdev.json')
+            tst = self.read_json(path + 'atistest.json')
 
         return tr, dev, tst
 
 
-def read_json(file_name):
-    lst = []
-    with open(file_name) as f:
-        data = json.load(f)
-        for elem in data['body']:
-            curr_line = elem['text'].split()
-            cleaned_line = self.cleanLine(curr_line)
-            curr_y = elem['intent']
-            lst.append((cleaned_line, curr_y))
-    return lst
+    def read_json(self, file_name):
+        lst = []
+        with open(file_name) as f:
+            data = json.load(f)
+            for elem in data['body']:
+                curr_line = elem['text'].split()
+                cleaned_line = self.cleanLine(curr_line)
+                curr_y = elem['intent']
+                lst.append((cleaned_line, curr_y))
+        return lst
 
 
 def split_data(tr, split=0.8):
     N = len(tr)
-    tr, dev = tr[:(split * N)], tr[(split * N):]
+    tr, dev = tr[:int(split * N)], tr[int(split * N):]
     return tr, dev
 
 
