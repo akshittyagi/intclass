@@ -19,7 +19,7 @@ class SentenceEmbedder(object):
         self.learning_rate = 1e-4
 
     def organise_data(self):
-        zipped_data_tr = zip(*self.tr)
+        zipped_data_tr = list(zip(*self.tr))
         sentences_tr = list(zipped_data_tr[0])
         sentences_tr = [sentence.split() for sentence in sentences_tr]
         classes_tr = list(zipped_data_tr[1])
