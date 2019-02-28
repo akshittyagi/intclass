@@ -4,3 +4,4 @@
 DataSets
 *.pdf
 makefile
+__pycache__
