@@ -83,13 +83,12 @@ class DataCleaner(object):
 
         return tr, dev, tst
 
-
     def read_json(self, file_name):
         lst = []
         with open(file_name) as f:
             data = json.load(f)
             for elem in data['body']:
-                curr_line = elem['text'].split()
+                curr_line = elem['text']
                 cleaned_line = self.cleanLine(curr_line)
                 curr_y = elem['intent']
                 lst.append((cleaned_line, curr_y))
