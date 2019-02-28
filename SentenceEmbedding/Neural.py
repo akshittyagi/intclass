@@ -13,5 +13,3 @@ class SingleLayer(nn.Module):
     def forward(self, x):
         x = F.relu(self.fc1(x))
         return x
-    
-    

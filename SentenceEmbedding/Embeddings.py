@@ -34,4 +34,3 @@ class Embed(object):
         self.model = model
         pkl.dump(self.model, open(model_name, 'wb'))
         print("Model saved: ", model_name)
-    
