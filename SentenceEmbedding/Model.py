@@ -2,9 +2,11 @@ import numpy as np
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
+from torch.autograd.variable import Variable
 
 from Embeddings import Embed
 from Neural import SingleLayer
+
 
 class SentenceEmbedder(object):
 
@@ -24,7 +26,7 @@ class SentenceEmbedder(object):
         sentences_tr = [sentence.split() for sentence in sentences_tr]
         classes_tr = list(zipped_data_tr[1])
         classes_uniq = list(set(classes_tr))
-        self.hashed_classes = {intent:idx for idx, intent in enumerate(classes_uniq)}
+        self.hashed_classes = {intent: idx for idx, intent in enumerate(classes_uniq)}
         classes_tr = [self.hashed_classes[intent] for intent in classes_tr]
         self.X = sentences_tr
         self.y = classes_tr
@@ -45,8 +47,8 @@ class SentenceEmbedder(object):
     def train(self, train, dev):
         self.organise_data()
         X_embed = self.generate_embeddings()
-        X_embed = np.array(X_embed)
-        y = np.array(self.y)
+        X_embed = Variable(np.array(X_embed))
+        y = Variable(np.array(self.y))
         single_layer = SingleLayer(self.dim, len(self.hashed_classes))
         device = ""
         if torch.cuda.is_available():
@@ -58,10 +60,11 @@ class SentenceEmbedder(object):
         for epoch in range(self.neural_epochs):
             for idx, x in enumerate(X_embed):
                 single_layer.train()
+                y_idx = y[idx]
                 x = x.to(device)
-                y = y.to(device)
+                y = y_idx.to(device)
                 scores = single_layer(x)
-                loss = F.cross_entropy(scores, y)
+                loss = F.cross_entropy(scores, y_idx)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
