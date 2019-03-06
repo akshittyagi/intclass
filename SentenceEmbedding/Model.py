@@ -44,6 +44,7 @@ class SentenceEmbedder(object):
 
     def train(self, train, dev):
         self.organise_data()
+        import pdb; pdb.set_trace()
         X_embed = self.generate_embeddings()
         X_embed = np.array(X_embed)
         y = np.array(self.y)

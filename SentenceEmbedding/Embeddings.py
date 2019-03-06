@@ -22,12 +22,12 @@ class Embed(object):
         import pdb; pdb.set_trace()
         if self.embedding == 'glove':
             pretrained_model_path = '../DataSets/glove.6B/glove.6B.300d.txt'
-            glove2word2vec(glove_input_file=pretrained_model_path,word2vec_output_file='../DataSets/glove.6B/glove.6B.300d.w2v')
-            pretrained_model = KeyedVectors.load_word2vec_format('../DataSets/glove.6B/glove.6B.300d.w2v', binary=False)
+            # glove2word2vec(glove_input_file=pretrained_model_path,word2vec_output_file='../DataSets/glove.6B/glove.6B.300d.w2v')
+            pretrained_model = KeyedVectors.load_word2vec_format(pretrained_model_path, binary=False)
         model = Word2Vec(size=self.dimension, min_count=self.min_count, workers=multiprocessing.cpu_count())
         model.build_vocab(self.sentences)
         dataset_size = model.corpus_count
-        model.build_vocab([pretrained_model.vocab.keys()], update=True)
+        model.build_vocab([list(pretrained_model.vocab.keys())], update=True)
         model.intersect_word2vec_format(pretrained_model_path, binary=False, lockf=1.0)
         model.train(self.sentences, total_examples=dataset_size, epochs=self.epochs)
         model_name = pretrained_model_path.split("/")[2] + "_EMBED.pkl"
