@@ -46,10 +46,10 @@ class SentenceEmbedder(object):
 
     def train(self, train, dev):
         self.organise_data()
-        import pdb; pdb.set_trace()
         X_embed = self.generate_embeddings()
-        X_embed = Variable(np.array(X_embed))
-        y = Variable(np.array(self.y))
+        import pdb; pdb.set_trace()
+        X_embed = torch.from_numpy(np.array(X_embed))
+        y = torch.from_numpy(np.array(self.y))
         single_layer = SingleLayer(self.dim, len(self.hashed_classes))
         device = ""
         if torch.cuda.is_available():
