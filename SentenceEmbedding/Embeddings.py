@@ -6,7 +6,7 @@ from gensim.scripts.glove2word2vec import glove2word2vec
 
 class Embed(object):
 
-    def __init__(self, sentences, embedding='glove', dim=300, min_count=1, epochs=10):
+    def __init__(self, sentences, embedding='glove', dim=300, min_count=1, epochs=50):
         '''
             train
         '''
@@ -21,6 +21,10 @@ class Embed(object):
         pretrained_model = []
         if self.embedding == 'glove':
             pretrained_model_path = '../DataSets/glove.6B/glove.6B.300d.txt'
+            model_name = pretrained_model_path.split("/")[2] + "_EMBED.pkl"
+            if os.path.exists(model_name):
+                self.model = pkl.load(open(model_name, 'rb'))
+                return
             _ = glove2word2vec(glove_input_file=pretrained_model_path,word2vec_output_file='../DataSets/glove.6B/glove.6B.300d.w2v')
             pretrained_model = KeyedVectors.load_word2vec_format('../DataSets/glove.6B/glove.6B.300d.w2v', binary=False)
         model = Word2Vec(size=self.dimension, min_count=self.min_count, workers=multiprocessing.cpu_count())
@@ -29,7 +33,7 @@ class Embed(object):
         model.build_vocab([list(pretrained_model.vocab.keys())], update=True)
         model.intersect_word2vec_format('../DataSets/glove.6B/glove.6B.300d.w2v', binary=False, lockf=1.0)
         model.train(self.sentences, total_examples=dataset_size, epochs=self.epochs)
-        model_name = pretrained_model_path.split("/")[2] + "_EMBED.pkl"
+        
         self.model = model
         pkl.dump(self.model, open(model_name, 'wb'))
         print("Model saved: ", model_name)
