@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torch.utils.data
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd.variable import Variable
@@ -19,6 +20,7 @@ class SentenceEmbedder(object):
         self.epochs = epochs
         self.neural_epochs = epochs
         self.learning_rate = 1e-4
+        self.debug = True
 
     def organise_data(self):
         zipped_data_tr = list(zip(*self.tr))
@@ -46,10 +48,24 @@ class SentenceEmbedder(object):
 
     def train(self, train, dev):
         self.organise_data()
+        if self.debug:
+            print("Data Organized")
         X_embed = self.generate_embeddings()
-        import pdb; pdb.set_trace()
-        X_embed = torch.from_numpy(np.array(X_embed))
-        y = torch.from_numpy(np.array(self.y))
+        if self.debug:
+            print("Embeddings Generated")
+        
+        # X_embed = torch.from_numpy(np.array(X_embed)).double()
+        # y = torch.from_numpy(np.array(self.y)).double()
+        
+        X_embed = torch.from_numpy(np.array(X_embed)).double()
+        y = torch.from_numpy(np.array(self.y)).double()
+
+        train_data = torch.utils.data.TensorDataset(X_embed, y)
+        train_loader = torch.utils.data.DataLoader(train_data, batch_size=16, shuffle=True)
+
+        X_embed = Variable(X_embed).float()
+        y = Variable(y).type(torch.LongTensor)
+
         single_layer = SingleLayer(self.dim, len(self.hashed_classes))
         device = ""
         if torch.cuda.is_available():
@@ -59,13 +75,19 @@ class SentenceEmbedder(object):
         single_layer.to(device)
         optimizer = optim.SGD(single_layer.parameters(), lr=self.learning_rate)
         for epoch in range(self.neural_epochs):
+            if self.debug:
+                print("At epoch: ", epoch + 1)
             for idx, x in enumerate(X_embed):
+                if self.debug and idx%100 == 0:
+                    print ("At datapoint: ", idx + 1)
                 single_layer.train()
                 y_idx = y[idx]
                 x = x.to(device)
                 y = y_idx.to(device)
                 scores = single_layer(x)
-                loss = F.cross_entropy(scores, y_idx)
+                scores = torch.reshape(scores, (1, -1))
+                y = y.reshape(1)
+                loss = F.cross_entropy(scores, y)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
