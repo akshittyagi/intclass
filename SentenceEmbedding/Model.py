@@ -78,19 +78,20 @@ class SentenceEmbedder(object):
             if self.debug:
                 print("At epoch: ", epoch + 1)
             for idx, x in enumerate(X_embed):
-                if self.debug and idx%100 == 0:
-                    print ("At datapoint: ", idx + 1)
+                if self.debug and idx%10000 == 0:
+                    print ("At datapoint: ", idx)
                 single_layer.train()
                 y_idx = y[idx]
                 x = x.to(device)
-                y = y_idx.to(device)
+                y_idx = y_idx.to(device)
                 scores = single_layer(x)
                 scores = torch.reshape(scores, (1, -1))
-                y = y.reshape(1)
-                loss = F.cross_entropy(scores, y)
+                y_idx = y_idx.reshape(1)
+                loss = F.cross_entropy(scores, y_idx)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+        torch.save(model.state_dict(), os.path(os.getcwd(), 'av_sent_emb_glove.STDICT'))
 
     def test(self, test):
         pass
