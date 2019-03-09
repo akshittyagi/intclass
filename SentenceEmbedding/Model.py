@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import torch
 import torch.utils.data
@@ -91,7 +92,7 @@ class SentenceEmbedder(object):
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-        torch.save(model.state_dict(), os.path(os.getcwd(), 'av_sent_emb_glove.STDICT'))
+        torch.save(single_layer.state_dict(), os.path(os.getcwd(), 'av_sent_emb_glove.STDICT'))
 
     def test(self, test):
         pass
