@@ -3,6 +3,6 @@
 *.pkl
 DataSets
 *.pdf
-makefile
 __pycache__
 *.json
+*.MODEL
