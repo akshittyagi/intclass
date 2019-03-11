@@ -124,6 +124,13 @@ class SentenceEmbedder(object):
         self.neural_model = single_layer
 
     def test(self, test):
+        self.device = ""
+        if torch.cuda.is_available():
+            self.device = torch.device('cuda')
+        else:
+            self.device = torch.device('cpu')
+        self.neural_model = torch.load(os.path.join(os.getcwd(), 'av_sent_emb_glove.MODEL'))
+        self.neural_model.to(self.device)
         X, y = self.organise_data(mode='test', test_data=test)
         X = self.generate_embeddings(mode='test', test_data=X)
         
