@@ -92,7 +92,7 @@ class SentenceEmbedder(object):
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-        torch.save(single_layer.state_dict(), os.path(os.getcwd(), 'av_sent_emb_glove.STDICT'))
+        torch.save(single_layer, os.path.join(os.getcwd(), 'av_sent_emb_glove.MODEL'))
 
     def test(self, test):
         pass
