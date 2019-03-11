@@ -8,7 +8,6 @@ import sklearn
 
 from utils import fb_top_intent
 
-
 class DataCleaner(object):
 
     def __init__(self, tokenization_type, dataset='fb'):
@@ -94,12 +93,10 @@ class DataCleaner(object):
                 lst.append((cleaned_line, curr_y))
         return lst
 
-
 def split_data(tr, split=0.8):
     N = len(tr)
     tr, dev = tr[:int(split * N)], tr[int(split * N):]
     return tr, dev
-
 
 def data_loader(path, dataset='fb'):
     dataCleaner = DataCleaner(tokenization_type=1, dataset=dataset)

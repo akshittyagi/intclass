@@ -2,7 +2,7 @@ import os
 import multiprocessing
 import pickle as pkl
 
-from gensim.models import KeyedVectors, Word2Vec
+from gensim.models import KeyedVectors, Word2Vec, Doc2Vec
 from gensim.scripts.glove2word2vec import glove2word2vec
 
 from utils import EpochLogger, MonitorLossLogger
@@ -35,7 +35,7 @@ class Embed(object):
             pretrained_model = KeyedVectors.load_word2vec_format('../DataSets/glove.6B/glove.6B.300d.w2v', binary=False)
         epoch_logger = EpochLogger()
         monitorloss_logger = MonitorLossLogger()
-        model = Word2Vec(size=self.dimension, min_count=self.min_count, workers=multiprocessing.cpu_count(), callbacks=[epoch_logger, monitorloss_logger])
+        model = Doc2Vec(size=self.dimension, min_count=self.min_count, workers=multiprocessing.cpu_count(), callbacks=[epoch_logger, monitorloss_logger])
         model.build_vocab(self.sentences)
         dataset_size = model.corpus_count
         model.build_vocab([list(pretrained_model.vocab.keys())], update=True)

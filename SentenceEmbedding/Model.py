@@ -24,29 +24,49 @@ class SentenceEmbedder(object):
         self.learning_rate = 1e-4
         self.debug = True
 
-    def organise_data(self):
-        zipped_data_tr = list(zip(*self.tr))
-        sentences_tr = list(zipped_data_tr[0])
-        sentences_tr = [sentence.split() for sentence in sentences_tr]
-        classes_tr = list(zipped_data_tr[1])
-        classes_uniq = list(set(classes_tr))
-        self.hashed_classes = {intent: idx for idx, intent in enumerate(classes_uniq)}
-        classes_tr = [self.hashed_classes[intent] for intent in classes_tr]
-        self.X = sentences_tr
-        self.y = classes_tr
+    def organise_data(self, mode='train', test_data=None):
+        if mode == 'train':
+            zipped_data_tr = list(zip(*self.tr))
+            sentences_tr = list(zipped_data_tr[0])
+            sentences_tr = [sentence.split() for sentence in sentences_tr]
+            classes_tr = list(zipped_data_tr[1])
+            classes_uniq = list(set(classes_tr))
+            self.hashed_classes = {intent: idx for idx, intent in enumerate(classes_uniq)}
+            classes_tr = [self.hashed_classes[intent] for intent in classes_tr]
+            self.X = sentences_tr
+            self.y = classes_tr
+        if mode == 'test':
+            zipped_data_tst = list(zip(*test_data))
+            sentences = list(zipped_data_tst[0])
+            sentences = [sentence.split() for sentence in sentences]
+            classes = [self.hashed_classes[intent] for intent in list(zipped_data_tst[1])]
+            return sentences, classes
 
-    def generate_embeddings(self):
-        emb = Embed(self.X, embedding=self.embedding, dim=self.dim, min_count=self.min_count, epochs=self.epochs, debug=self.debug)
-        emb.train()
-        embeddings = []
-        for sentence in self.X:
-            curr_sentence = np.zeros(self.dim)
-            for word in sentence:
-                embed = emb.model[word]
-                curr_sentence += embed
-            curr_sentence /= len(sentence)
-            embeddings.append(curr_sentence)
-        return embeddings
+    def generate_embeddings(self, mode='train', test_data=None):
+        if mode == 'train':
+            emb = Embed(self.X, embedding=self.embedding, dim=self.dim, min_count=self.min_count, epochs=self.epochs, debug=self.debug)
+            self.embedding_obj = emb
+            emb.train()
+            embeddings = []
+            for sentence in self.X:
+                curr_sentence = np.zeros(self.dim)
+                for word in sentence:
+                    embed = emb.model[word]
+                    curr_sentence += embed
+                curr_sentence /= len(sentence)
+                embeddings.append(curr_sentence)
+            return embeddings
+        if mode == 'test':
+            X = []
+            for sentence in test_data:
+                curr_sentence = np.zeros(self.dim)
+                for word in sentence:
+                    if word in self.embedding_obj.model:
+                        curr_sentence += self.embedding_obj.model[word]
+                curr_sentence /= len(sentence)
+                X.append(curr_sentence)
+            X = np.array(X)
+            return X
 
     def train(self, train, dev):
         self.organise_data()
@@ -56,9 +76,17 @@ class SentenceEmbedder(object):
         if self.debug:
             print("Embeddings Generated")
         
-        # X_embed = torch.from_numpy(np.array(X_embed)).double()
-        # y = torch.from_numpy(np.array(self.y)).double()
-        
+        self.device = ""
+        if torch.cuda.is_available():
+            self.device = torch.device('cuda')
+        else:
+            self.device = torch.device('cpu')
+
+        if os.path.exists(os.path.join(os.getcwd(), 'av_sent_emb_glove.MODEL')):
+            self.neural_model = torch.load(os.path.join(os.getcwd(), 'av_sent_emb_glove.MODEL'))
+            self.neural_model.to(self.device)
+            return
+
         X_embed = torch.from_numpy(np.array(X_embed)).double()
         y = torch.from_numpy(np.array(self.y)).double()
 
@@ -69,12 +97,8 @@ class SentenceEmbedder(object):
         y = Variable(y).type(torch.LongTensor)
 
         single_layer = SingleLayer(self.dim, len(self.hashed_classes))
-        device = ""
-        if torch.cuda.is_available():
-            device = torch.device('cuda')
-        else:
-            device = torch.device('cpu')
-        single_layer.to(device)
+        
+        single_layer.to(self.device)
         optimizer = optim.SGD(single_layer.parameters(), lr=self.learning_rate)
         for epoch in range(self.neural_epochs):
             if self.debug:
@@ -84,8 +108,8 @@ class SentenceEmbedder(object):
                     print ("At datapoint: ", idx)
                 single_layer.train()
                 y_idx = y[idx]
-                x = x.to(device)
-                y_idx = y_idx.to(device)
+                x = x.to(self.device)
+                y_idx = y_idx.to(self.device)
                 scores = single_layer(x)
                 scores = torch.reshape(scores, (1, -1))
                 y_idx = y_idx.reshape(1)
@@ -94,6 +118,29 @@ class SentenceEmbedder(object):
                 loss.backward()
                 optimizer.step()
         torch.save(single_layer, os.path.join(os.getcwd(), 'av_sent_emb_glove.MODEL'))
+        self.neural_model = single_layer
 
     def test(self, test):
-        pass
+        X, y = self.organise_data(mode='test', test_data=test)
+        X = self.generate_embeddings(mode='test', test_data=X)
+        
+        X = torch.from_numpy(np.array(X)).double()
+        y = torch.from_numpy(np.array(y)).double()
+        
+        train_data = torch.utils.data.TensorDataset(X, y)
+        train_loader = torch.utils.data.DataLoader(train_data, batch_size=16, shuffle=True)
+
+        X = Variable(X).float()
+        y = Variable(y).type(torch.LongTensor)
+        pred = []
+        for idx, x in enumerate(X):
+            y_idx = y[idx]
+            x = x.to(self.device)
+            y_idx = y_idx.to(self.device)
+            scores = self.neural_model(x)
+            _, indices = torch.max(scores, 0)
+            pred.append(indices.item())
+        pred = np.array(pred)
+        y = y.data.numpy()
+        accuracy = np.sum(y == pred) * 1.0 / len(y)
+        print("Accuracy: ", accuracy)
