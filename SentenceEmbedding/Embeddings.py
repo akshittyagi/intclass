@@ -35,7 +35,7 @@ class Embed(object):
             pretrained_model = KeyedVectors.load_word2vec_format('../DataSets/glove.6B/glove.6B.300d.w2v', binary=False)
         epoch_logger = EpochLogger()
         monitorloss_logger = MonitorLossLogger()
-        model = Doc2Vec(size=self.dimension, min_count=self.min_count, workers=multiprocessing.cpu_count(), callbacks=[epoch_logger, monitorloss_logger])
+        model = Word2Vec(size=self.dimension, min_count=self.min_count, workers=multiprocessing.cpu_count(), callbacks=[epoch_logger, monitorloss_logger])
         model.build_vocab(self.sentences)
         dataset_size = model.corpus_count
         model.build_vocab([list(pretrained_model.vocab.keys())], update=True)
