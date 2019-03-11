@@ -1,4 +1,5 @@
 import os
+
 import numpy as np
 import torch
 import torch.utils.data
@@ -35,7 +36,7 @@ class SentenceEmbedder(object):
         self.y = classes_tr
 
     def generate_embeddings(self):
-        emb = Embed(self.X, embedding=self.embedding, dim=self.dim, min_count=self.min_count, epochs=self.epochs)
+        emb = Embed(self.X, embedding=self.embedding, dim=self.dim, min_count=self.min_count, epochs=self.epochs, debug=self.debug)
         emb.train()
         embeddings = []
         for sentence in self.X:

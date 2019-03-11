@@ -1,11 +1,9 @@
 clean:
-	rm *.pyc
-	rm *.pkl
 	rm -r __pycache__
+	rm *.pkl
 	rm *.MODEL
 
 clean_exec:
-	rm *.pyc
 	rm -r __pycache__
 
 clean_mod:
