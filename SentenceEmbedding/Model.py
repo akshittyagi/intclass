@@ -19,7 +19,7 @@ class SentenceEmbedder(object):
         self.embedding = embedding
         self.dim = dim
         self.min_count = min_count
-        self.epochs = epochs
+        self.epochs = epochs * 2
         self.neural_epochs = epochs
         self.learning_rate = 1e-4
         self.debug = True
@@ -103,6 +103,7 @@ class SentenceEmbedder(object):
         for epoch in range(self.neural_epochs):
             if self.debug:
                 print("At epoch: ", epoch + 1)
+            av_loss = 0
             for idx, x in enumerate(X_embed):
                 if self.debug and idx%10000 == 0:
                     print ("At datapoint: ", idx)
@@ -114,9 +115,11 @@ class SentenceEmbedder(object):
                 scores = torch.reshape(scores, (1, -1))
                 y_idx = y_idx.reshape(1)
                 loss = F.cross_entropy(scores, y_idx)
+                av_loss += loss.data.item()
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+            print("Loss: ", av_loss * 1.0/len(X_embed))
         torch.save(single_layer, os.path.join(os.getcwd(), 'av_sent_emb_glove.MODEL'))
         self.neural_model = single_layer
 
