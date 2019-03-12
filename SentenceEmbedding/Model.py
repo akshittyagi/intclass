@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torch.autograd.variable import Variable
 
 from Embeddings import Embed
-from Neural import SingleLayer
+from Neural import SingleLayer, ThreeLayer
 
 
 class SentenceEmbedder(object):
@@ -82,8 +82,8 @@ class SentenceEmbedder(object):
         else:
             self.device = torch.device('cpu')
 
-        if os.path.exists(os.path.join(os.getcwd(), 'av_sent_emb_glove.MODEL')):
-            self.neural_model = torch.load(os.path.join(os.getcwd(), 'av_sent_emb_glove.MODEL'))
+        if os.path.exists(os.path.join(os.getcwd(), 'av_sent_emb_3_layer_glove.MODEL')):
+            self.neural_model = torch.load(os.path.join(os.getcwd(), 'av_sent_3_layer_emb_glove.MODEL'))
             self.neural_model.to(self.device)
             return
 
@@ -96,10 +96,10 @@ class SentenceEmbedder(object):
         X_embed = Variable(X_embed).float()
         y = Variable(y).type(torch.LongTensor)
 
-        single_layer = SingleLayer(self.dim, len(self.hashed_classes))
+        model = ThreeLayer(self.dim, len(self.hashed_classes))
         
-        single_layer.to(self.device)
-        optimizer = optim.SGD(single_layer.parameters(), lr=self.learning_rate)
+        model.to(self.device)
+        optimizer = optim.SGD(model.parameters(), lr=self.learning_rate)
         for epoch in range(self.neural_epochs):
             if self.debug:
                 print("At epoch: ", epoch + 1)
@@ -107,11 +107,11 @@ class SentenceEmbedder(object):
             for idx, x in enumerate(X_embed):
                 if self.debug and idx%10000 == 0:
                     print ("At datapoint: ", idx)
-                single_layer.train()
+                model.train()
                 y_idx = y[idx]
                 x = x.to(self.device)
                 y_idx = y_idx.to(self.device)
-                scores = single_layer(x)
+                scores = model(x)
                 scores = torch.reshape(scores, (1, -1))
                 y_idx = y_idx.reshape(1)
                 loss = F.cross_entropy(scores, y_idx)
@@ -120,8 +120,8 @@ class SentenceEmbedder(object):
                 loss.backward()
                 optimizer.step()
             print("Loss: ", av_loss * 1.0/len(X_embed))
-        torch.save(single_layer, os.path.join(os.getcwd(), 'av_sent_emb_glove.MODEL'))
-        self.neural_model = single_layer
+        torch.save(model, os.path.join(os.getcwd(), 'av_sent_emb_3_layer_glove.MODEL'))
+        self.neural_model = model
 
     def test(self, test):
         self.device = ""

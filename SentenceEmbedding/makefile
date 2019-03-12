@@ -7,8 +7,10 @@ clean_exec:
 	rm -r __pycache__
 
 clean_mod:
-	rm *.pkl
 	rm *.MODEL
+
+clean_emb:
+	rm *.pkl
 
 run_test:
 	python main.py
