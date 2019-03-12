@@ -21,7 +21,7 @@ class SentenceEmbedder(object):
         self.min_count = min_count
         self.epochs = epochs * 2
         self.neural_epochs = epochs
-        self.learning_rate = 1e-4
+        self.learning_rate = 1e-3
         self.debug = True
 
     def organise_data(self, mode='train', test_data=None):
@@ -99,7 +99,7 @@ class SentenceEmbedder(object):
         model = ThreeLayer(self.dim, len(self.hashed_classes))
         
         model.to(self.device)
-        optimizer = optim.SGD(model.parameters(), lr=self.learning_rate)
+        optimizer = optim.Adam(model.parameters(), lr=self.learning_rate, betas=(0.9, 0.999), eps=1e-08, amsgrad=False)
         for epoch in range(self.neural_epochs):
             if self.debug:
                 print("At epoch: ", epoch + 1)
