@@ -18,9 +18,9 @@ class ThreeLayer(nn.Module):
 
     def __init__(self, input_dim, output_dim):
         super(ThreeLayer, self).__init__()
-        self.fc1 = nn.Linear(input_dim, input_dim / 2)
-        self.fc2 = nn.Linear(input_dim / 2, input_dim / 4)
-        self.fc3 = nn.Linear(input_dim / 4, output_dim)
+        self.fc1 = nn.Linear(input_dim, 100)
+        self.fc2 = nn.Linear(100, 50)
+        self.fc3 = nn.Linear(50, output_dim)
         nn.init.kaiming_normal_(self.fc1.weight)
         nn.init.kaiming_normal_(self.fc2.weight)
         nn.init.kaiming_normal_(self.fc3.weight)
