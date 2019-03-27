@@ -1,3 +1,3 @@
 # Training and running the model
 
-`python main.py``
+`python main.py`
