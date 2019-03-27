@@ -36,7 +36,7 @@ class ThreeLayer(nn.Module):
 
 class StackedLSTM(nn.Module):
 
-    def __init__(self, hidden_dim=1200, embedding_dim=300, output_dim, num_layers=3):
+    def __init__(self, output_dim, hidden_dim=1200, embedding_dim=300, num_layers=3):
         super(StackedLSTM, self).__init__()
         self.hidden_dim = hidden_dim
         self.embedding_dim = embedding_dim
