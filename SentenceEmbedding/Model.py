@@ -42,18 +42,27 @@ class SentenceEmbedder(object):
             classes = [self.hashed_classes[intent] for intent in list(zipped_data_tst[1])]
             return sentences, classes
 
-    def generate_embeddings(self, mode='train', test_data=None):
+    def generate_embeddings(self, mode='train', net='fcn', test_data=None):
         if mode == 'train':
             emb = Embed(self.X, embedding=self.embedding, dim=self.dim, min_count=self.min_count, epochs=self.epochs, debug=self.debug)
             self.embedding_obj = emb
             emb.train()
             embeddings = []
             for sentence in self.X:
-                curr_sentence = np.zeros(self.dim)
-                for word in sentence:
-                    embed = emb.model[word]
-                    curr_sentence += embed
-                curr_sentence /= len(sentence)
+                if net == 'fcn':
+                    curr_sentence = np.zeros(self.dim)
+                    for word in sentence:
+                        embed = emb.model[word]
+                        curr_sentence += embed
+                    curr_sentence /= len(sentence)
+                if net == 'rnn':
+                    curr_sentence = []
+                    for word in sentence:
+                        embed = emb.model[word]
+                        curr_sentence.append(embed)
+                    if len(sentence) < 40:
+                        for i in range(40-len(sentence)):
+                            curr_sentence.append([0] * self.dim)
                 embeddings.append(curr_sentence)
             return embeddings
         if mode == 'test':
