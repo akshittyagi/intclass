@@ -84,7 +84,7 @@ class SentenceEmbedder(object):
         X_embed = self.generate_embeddings()
         if self.debug:
             print("Embeddings Generated")
-        
+
         self.device = ""
         if torch.cuda.is_available():
             self.device = torch.device('cuda')
@@ -92,7 +92,7 @@ class SentenceEmbedder(object):
             self.device = torch.device('cpu')
 
         if os.path.exists(os.path.join(os.getcwd(), 'av_sent_emb_3_layer_glove.MODEL')):
-            self.neural_model = torch.load(os.path.join(os.getcwd(), 'av_sent_3_layer_emb_glove.MODEL'))
+            self.neural_model = torch.load(os.path.join(os.getcwd(), 'av_sent_emb_3_layer_glove.MODEL'))
             self.neural_model.to(self.device)
             return
 
@@ -106,7 +106,7 @@ class SentenceEmbedder(object):
         y = Variable(y).type(torch.LongTensor)
 
         model = ThreeLayer(self.dim, len(self.hashed_classes))
-        
+
         model.to(self.device)
         optimizer = optim.Adam(model.parameters(), lr=self.learning_rate, betas=(0.9, 0.999), eps=1e-08, amsgrad=False)
         for epoch in range(self.neural_epochs):
@@ -142,10 +142,10 @@ class SentenceEmbedder(object):
         self.neural_model.to(self.device)
         X, y = self.organise_data(mode='test', test_data=test)
         X = self.generate_embeddings(mode='test', test_data=X)
-        
+
         X = torch.from_numpy(np.array(X)).double()
         y = torch.from_numpy(np.array(y)).double()
-        
+
         train_data = torch.utils.data.TensorDataset(X, y)
         train_loader = torch.utils.data.DataLoader(train_data, batch_size=16, shuffle=True)
 
