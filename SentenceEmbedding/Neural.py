@@ -2,7 +2,7 @@ import torch
 from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
-
+import numpy as np
 
 class SingleLayer(nn.Module):
 
@@ -52,18 +52,45 @@ class ThreeLayerBN(nn.Module):
         nn.init.kaiming_normal_(self.exit_1.weight)
         nn.init.kaiming_normal_(self.exit_2.weight)
         nn.init.kaiming_normal_(self.exit_3.weight)
+        self.entropy_thresholds = [] * 3
 
     def forward(self, x, y):
         x = F.relu(self.fc1(x))
         exit_1 = self.exit_1(x)
+        sm_1 = F.softmax(exit_1, dim=0)
+        neg_entropy_1 = torch.sum(sm_1 * np.log(sm_1))
         loss_1 = F.cross_entropy(torch.reshape(exit_1, (1, -1)), y) * self.scale_weight_1
         x = F.relu(self.fc2(x))
         exit_2 = self.exit_2(x)
+        sm_2 = F.softmax(exit_2, dim=0)
+        neg_entropy_2 = torch.sum(sm_2 * np.log(sm_2))
         loss_2 = F.cross_entropy(torch.reshape(exit_2, (1, -1)), y) * self.scale_weight_2
         x = F.relu(self.fc3(x))
         exit_3 = self.exit_3(x)
+        sm_3 = F.softmax(exit_3, dim=0)
+        neg_entropy_3 = torch.sum(sm_3 * np.log(sm_3))
         loss_3 = F.cross_entropy(torch.reshape(exit_3, (1, -1)), y) * self.scale_weight_3
-        return loss_1 + loss_2 + loss_3
+        return (loss_1 + loss_2 + loss_3) / 3, [neg_entropy_1, neg_entropy_2, neg_entropy_3]    
+
+    def set_entropy_thresholds(self, thresholds):
+        self.entropy_thresholds = thresholds
+
+    def forward_test(self, x):
+        x = F.relu(self.fc1(x))
+        exit_1 = self.exit_1(x)
+        sm_1 = F.softmax(exit_1, dim=0)
+        neg_entropy_1 = torch.sum(sm_1 * np.log(sm_1))
+        if neg_entropy_1 < self.entropy_thresholds[0]:
+            return exit_1
+        x = F.relu(self.fc2(x))
+        exit_2 = self.exit_2(x)
+        sm_2 = F.softmax(exit_2, dim=0)
+        neg_entropy_2 = torch.sum(sm_2 * np.log(sm_2))
+        if neg_entropy_2 < self.entropy_thresholds[1]:
+            return exit_2
+        x = F.relu(self.fc3(x))
+        exit_3 = self.exit_3(x)
+        return exit_3
 
 class StackedLSTM(nn.Module):
 
