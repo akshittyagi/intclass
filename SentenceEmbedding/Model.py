@@ -22,7 +22,7 @@ class SentenceEmbedder(object):
         self.min_count = min_count
         self.epochs = epochs * 2
         self.neural_epochs = epochs
-        self.learning_rate = 1e-5
+        self.learning_rate = 1e-3
         self.debug = True
 
     def organise_data(self, mode='train', test_data=None):
