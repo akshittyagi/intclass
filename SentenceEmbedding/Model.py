@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torch.autograd.variable import Variable
 
 from Embeddings import Embed
-from Neural import SingleLayer, ThreeLayer
+from Neural import SingleLayer, ThreeLayer, StackedLSTM
 
 
 class SentenceEmbedder(object):
@@ -56,24 +56,35 @@ class SentenceEmbedder(object):
                         curr_sentence += embed
                     curr_sentence /= len(sentence)
                 if net == 'rnn':
-                    curr_sentence = []
-                    for word in sentence:
-                        embed = emb.model[word]
-                        curr_sentence.append(embed)
-                    if len(sentence) < 40:
-                        for i in range(40-len(sentence)):
-                            curr_sentence.append([0] * self.dim)
+                    curr_sentence = np.zeros([20, self.dim])
+                    for idx, word in enumerate(sentence):
+                        if idx < 20:
+                            embed = emb.model[word]
+                            curr_sentence[idx] = embed
+                        else:
+                            break
+
                 embeddings.append(curr_sentence)
             return embeddings
         if mode == 'test':
             X = []
             for sentence in test_data:
-                curr_sentence = np.zeros(self.dim)
-                for word in sentence:
-                    if word in self.embedding_obj.model:
-                        curr_sentence += self.embedding_obj.model[word]
-                curr_sentence /= len(sentence)
-                X.append(curr_sentence)
+                if net == 'fcn':
+                    curr_sentence = np.zeros(self.dim)
+                    for word in sentence:
+                        if word in self.embedding_obj.model:
+                            curr_sentence += self.embedding_obj.model[word]
+                    curr_sentence /= len(sentence)
+                    X.append(curr_sentence)
+                if net == 'rnn':
+                    curr_sentence = np.zeros([20, self.dim])
+                    for idx, word in enumerate(sentence):
+                        if idx < 20:
+                            if word in self.embedding_obj.model:
+                                embed = emb.model[word]
+                                curr_sentence[idx] = embed
+
+                    X.append(curr_sentence)
             X = np.array(X)
             return X
 
@@ -81,7 +92,7 @@ class SentenceEmbedder(object):
         self.organise_data()
         if self.debug:
             print("Data Organized")
-        X_embed = self.generate_embeddings()
+        X_embed = self.generate_embeddings(net='rnn')
         if self.debug:
             print("Embeddings Generated")
 
@@ -105,7 +116,8 @@ class SentenceEmbedder(object):
         X_embed = Variable(X_embed).float()
         y = Variable(y).type(torch.LongTensor)
 
-        model = ThreeLayer(self.dim, len(self.hashed_classes))
+        # model = ThreeLayer(self.dim, len(self.hashed_classes))
+        model = StackedLSTM(output_dim=len(self.hashed_classes), embedding_dim=self.dim)
 
         model.to(self.device)
         optimizer = optim.Adam(model.parameters(), lr=self.learning_rate, betas=(0.9, 0.999), eps=1e-08, amsgrad=False)
@@ -114,8 +126,8 @@ class SentenceEmbedder(object):
                 print("At epoch: ", epoch + 1)
             av_loss = 0
             for idx, x in enumerate(X_embed):
-                if self.debug and idx%10000 == 0:
-                    print ("At datapoint: ", idx)
+                if self.debug and idx % 10000 == 0:
+                    print("At datapoint: ", idx)
                 model.train()
                 y_idx = y[idx]
                 x = x.to(self.device)
@@ -128,7 +140,7 @@ class SentenceEmbedder(object):
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-            print("Loss: ", av_loss * 1.0/len(X_embed))
+            print("Loss: ", av_loss * 1.0 / len(X_embed))
         torch.save(model, os.path.join(os.getcwd(), 'av_sent_emb_3_layer_glove.MODEL'))
         self.neural_model = model
 
