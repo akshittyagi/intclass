@@ -1,4 +1,5 @@
 from gensim.models.callbacks import CallbackAny2Vec
+import numpy as np
 
 class EpochLogger(CallbackAny2Vec):
 
@@ -19,3 +20,6 @@ class MonitorLossLogger(CallbackAny2Vec):
 
 def fb_top_intent(intents):
     return intents.split()[0][1:]
+
+def accuracy(y_true, y_pred):
+    return np.sum(y_true == y_pred) * 1.0 / len(y_true)

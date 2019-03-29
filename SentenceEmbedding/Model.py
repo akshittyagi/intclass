@@ -9,6 +9,7 @@ from torch.autograd.variable import Variable
 
 from Embeddings import Embed
 from Neural import SingleLayer, ThreeLayer
+from utils import accuracy
 
 
 class SentenceEmbedder(object):
@@ -161,5 +162,5 @@ class SentenceEmbedder(object):
             pred.append(indices.item())
         pred = np.array(pred)
         y = y.data.numpy()
-        accuracy = np.sum(y == pred) * 1.0 / len(y)
-        print("Accuracy: ", accuracy)
+        acc = accuracy(y, pred)
+        print("Accuracy: ", acc)
