@@ -88,7 +88,7 @@ class SentenceEmbedder(object):
             X = np.array(X)
             return X
 
-    def train(self, train, dev):
+    def train(self, train, dev, model_type='recurrent'):
         self.organise_data()
         if self.debug:
             print("Data Organized")
@@ -116,8 +116,10 @@ class SentenceEmbedder(object):
         X_embed = Variable(X_embed).float()
         y = Variable(y).type(torch.LongTensor)
 
-        # model = ThreeLayer(self.dim, len(self.hashed_classes))
-        model = StackedLSTM(output_dim=len(self.hashed_classes), embedding_dim=self.dim)
+        if model_type == 'feed_forward':
+            model = ThreeLayer(self.dim, len(self.hashed_classes))
+        elif model_type == 'recurrent':
+            model = StackedLSTM(output_dim=len(self.hashed_classes), embedding_dim=self.dim)
 
         model.to(self.device)
         optimizer = optim.Adam(model.parameters(), lr=self.learning_rate, betas=(0.9, 0.999), eps=1e-08, amsgrad=False)
@@ -128,7 +130,8 @@ class SentenceEmbedder(object):
             for idx, x in enumerate(X_embed):
                 if self.debug and idx % 10000 == 0:
                     print("At datapoint: ", idx)
-                model.train()
+                if model_type == 'recurrent':
+                    model.train()
                 y_idx = y[idx]
                 x = x.to(self.device)
                 y_idx = y_idx.to(self.device)
