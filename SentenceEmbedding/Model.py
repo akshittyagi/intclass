@@ -56,9 +56,9 @@ class SentenceEmbedder(object):
                         curr_sentence += embed
                     curr_sentence /= len(sentence)
                 if net == 'rnn':
-                    curr_sentence = np.zeros([40, self.dim])
+                    curr_sentence = np.zeros([20, self.dim])
                     for idx, word in enumerate(sentence):
-                        if idx < 40:
+                        if idx < 20:
                             embed = emb.model[word]
                             curr_sentence[idx] = embed
                         else:
@@ -77,9 +77,9 @@ class SentenceEmbedder(object):
                     curr_sentence /= len(sentence)
                     X.append(curr_sentence)
                 if net == 'rnn':
-                    curr_sentence = np.zeros([40, self.dim])
+                    curr_sentence = np.zeros([20, self.dim])
                     for idx, word in enumerate(sentence):
-                        if idx < 40:
+                        if idx < 20:
                             if word in self.embedding_obj.model:
                                 embed = emb.model[word]
                                 curr_sentence[idx] = embed
