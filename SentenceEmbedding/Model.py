@@ -8,8 +8,8 @@ import torch.nn.functional as F
 from torch.autograd.variable import Variable
 
 from Embeddings import Embed
-from Neural import SingleLayer, ThreeLayer
-from utils import accuracy
+from Neural import SingleLayer, ThreeLayer, StackedLSTM, ThreeLayerBN
+from utils import get_branchy_exit_weights, get_entropy_thresholds, accuracy
 
 
 class SentenceEmbedder(object):
@@ -57,32 +57,44 @@ class SentenceEmbedder(object):
                         curr_sentence += embed
                     curr_sentence /= len(sentence)
                 if net == 'rnn':
-                    curr_sentence = []
-                    for word in sentence:
-                        embed = emb.model[word]
-                        curr_sentence.append(embed)
-                    if len(sentence) < 40:
-                        for i in range(40-len(sentence)):
-                            curr_sentence.append([0] * self.dim)
+                    curr_sentence = np.zeros([20, self.dim])
+                    for idx, word in enumerate(sentence):
+                        if idx < 20:
+                            embed = emb.model[word]
+                            curr_sentence[idx] = embed
+                        else:
+                            break
+
                 embeddings.append(curr_sentence)
             return embeddings
         if mode == 'test':
             X = []
             for sentence in test_data:
-                curr_sentence = np.zeros(self.dim)
-                for word in sentence:
-                    if word in self.embedding_obj.model:
-                        curr_sentence += self.embedding_obj.model[word]
-                curr_sentence /= len(sentence)
-                X.append(curr_sentence)
+                if net == 'fcn':
+                    curr_sentence = np.zeros(self.dim)
+                    for word in sentence:
+                        if word in self.embedding_obj.model:
+                            curr_sentence += self.embedding_obj.model[word]
+                    curr_sentence /= len(sentence)
+                    X.append(curr_sentence)
+                if net == 'rnn':
+                    curr_sentence = np.zeros([20, self.dim])
+                    for idx, word in enumerate(sentence):
+                        if idx < 20:
+                            if word in self.embedding_obj.model:
+                                embed = emb.model[word]
+                                curr_sentence[idx] = embed
+
+                    X.append(curr_sentence)
             X = np.array(X)
             return X
 
-    def train(self, train, dev):
+    def train(self, train, dev, model_type='recurrent'):
+        self.model_type = model_type
         self.organise_data()
         if self.debug:
             print("Data Organized")
-        X_embed = self.generate_embeddings()
+        X_embed = self.generate_embeddings(net='rnn')
         if self.debug:
             print("Embeddings Generated")
 
@@ -106,7 +118,14 @@ class SentenceEmbedder(object):
         X_embed = Variable(X_embed).float()
         y = Variable(y).type(torch.LongTensor)
 
-        model = ThreeLayer(self.dim, len(self.hashed_classes))
+        if model_type == 'feed_forward':
+            model = ThreeLayer(self.dim, len(self.hashed_classes))
+        elif model_type == 'recurrent':
+            model = StackedLSTM(output_dim=len(self.hashed_classes), embedding_dim=self.dim)
+        elif model_type == 'feed_forward_bn':
+            entropies = []
+            exit_weights = get_branchy_exit_weights(num=3, span=[0, 1])
+            model = ThreeLayerBN(input_dim=self.dim, output_dim=len(self.hashed_class), dimensions=[100, 75, 50], init_exit_weights=exit_weights)
 
         model.to(self.device)
         optimizer = optim.Adam(model.parameters(), lr=self.learning_rate, betas=(0.9, 0.999), eps=1e-08, amsgrad=False)
@@ -115,13 +134,18 @@ class SentenceEmbedder(object):
                 print("At epoch: ", epoch + 1)
             av_loss = 0
             for idx, x in enumerate(X_embed):
-                if self.debug and idx%10000 == 0:
-                    print ("At datapoint: ", idx)
-                model.train()
+                if self.debug and idx % 10000 == 0:
+                    print("At datapoint: ", idx)
+                if model_type == 'recurrent':
+                    model.train()
                 y_idx = y[idx]
                 x = x.to(self.device)
                 y_idx = y_idx.to(self.device)
-                scores = model(x)
+                if model_type == 'feed_forward_bn':
+                    scores, entropy = model(x, y)
+                    entropies.append(entropy)
+                else:
+                    scores = model(x)
                 scores = torch.reshape(scores, (1, -1))
                 y_idx = y_idx.reshape(1)
                 loss = F.cross_entropy(scores, y_idx)
@@ -129,8 +153,11 @@ class SentenceEmbedder(object):
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-            print("Loss: ", av_loss * 1.0/len(X_embed))
+            print("Loss: ", av_loss * 1.0 / len(X_embed))
         torch.save(model, os.path.join(os.getcwd(), 'av_sent_emb_3_layer_glove.MODEL'))
+        if model_type == 'feed_forward_bn':
+            percent_data = 0.3
+            model.set_entropy_thresholds(get_entropy_thresholds(entropies, percent_data))
         self.neural_model = model
 
     def test(self, test):
@@ -157,7 +184,10 @@ class SentenceEmbedder(object):
             y_idx = y[idx]
             x = x.to(self.device)
             y_idx = y_idx.to(self.device)
-            scores = self.neural_model(x)
+            if self.model_type == 'feed_forward_bn':
+                scores = self.neural_model.forward_test(x)
+            else:
+                scores = self.neural_model(x)
             _, indices = torch.max(scores, 0)
             pred.append(indices.item())
         pred = np.array(pred)
