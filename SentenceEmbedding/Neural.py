@@ -33,6 +33,37 @@ class ThreeLayer(nn.Module):
         x = F.relu(self.fc3(x))
         return x
 
+class ThreeLayerBN(nn.Module):
+
+    def __init__(self, input_dim, output_dim, dimensions, init_exit_weights):
+        super(ThreeLayerBN, self).__init__()
+        self.fc1 = nn.Linear(input_dim, dimensions[0])
+        self.exit_1 = nn.Linear(dimensions[0], output_dim)
+        self.scale_weight_1 = Variable(init_exit_weights[0] * torch.ones(1), requires_grad=True)
+        self.fc2 = nn.Linear(dimensions[0], dimensions[1])
+        self.exit_2 = nn.Linear(dimensions[1], output_dim)
+        self.scale_weight_2 = Variable(init_exit_weights[1] * torch.ones(1), requires_grad=True)
+        self.fc3 = nn.Linear(dimensions[1], dimensions[2])
+        self.exit_3 = nn.Linear(dimensions[2], output_dim)
+        self.scale_weight_3 = Variable(init_exit_weights[2] * torch.ones(1), requires_grad=True)
+        nn.init.kaiming_normal_(self.fc1.weight)
+        nn.init.kaiming_normal_(self.fc2.weight)
+        nn.init.kaiming_normal_(self.fc3.weight)
+        nn.init.kaiming_normal_(self.exit_1.weight)
+        nn.init.kaiming_normal_(self.exit_2.weight)
+        nn.init.kaiming_normal_(self.exit_3.weight)
+
+    def forward(self, x, y):
+        x = F.relu(self.fc1(x))
+        exit_1 = self.exit_1(x)
+        loss_1 = F.cross_entropy(torch.reshape(exit_1, (1, -1)), y) * self.scale_weight_1
+        x = F.relu(self.fc2(x))
+        exit_2 = self.exit_2(x)
+        loss_2 = F.cross_entropy(torch.reshape(exit_2, (1, -1)), y) * self.scale_weight_2
+        x = F.relu(self.fc3(x))
+        exit_3 = self.exit_3(x)
+        loss_3 = F.cross_entropy(torch.reshape(exit_3, (1, -1)), y) * self.scale_weight_3
+        return loss_1 + loss_2 + loss_3
 
 class StackedLSTM(nn.Module):
 
