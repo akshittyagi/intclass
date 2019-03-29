@@ -43,10 +43,23 @@ class StackedLSTM(nn.Module):
         self.output_dim = output_dim
         self.num_layers = num_layers
 
-        self.rnns = [nn.LSTM(self.embedding_dim if i == 0 else self.hidden_dim,
+        self.inp = nn.Linear(self.embedding_dim, self.hidden_dim)
+        self.rnns = [nn.LSTM(self.hidden_dim,
                              self.hidden_dim, batch_first=True)
                      for i in range(self.num_layers)]
+        self.rnns = torch.nn.ModuleList(self.rnns)
         self.out = nn.Linear(self.hidden_dim, self.output_dim)
 
+        nn.init.kaiming_normal_(self.inp.weight)
+        nn.init.kaiming_normal_(self.out.weight)
+
     def forward(self, x):
-        pass
+        inp = self.inp(x)
+        lstm_out = inp.unsqueeze(0)
+
+        for i, layer in enumerate(self.rnns):
+            lstm_out, (h, c) = layer(lstm_out)
+
+        logits = self.out(lstm_out)
+
+        return logits
