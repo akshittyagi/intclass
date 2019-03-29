@@ -10,7 +10,7 @@ from torch.autograd.variable import Variable
 from Embeddings import Embed
 from Neural import SingleLayer, ThreeLayer, StackedLSTM, ThreeLayerBN
 from utils import get_branchy_exit_weights, get_entropy_thresholds, accuracy
-
+from sklearn.metrics import f1_score
 
 class SentenceEmbedder(object):
 
@@ -22,7 +22,7 @@ class SentenceEmbedder(object):
         self.min_count = min_count
         self.epochs = epochs * 2
         self.neural_epochs = epochs
-        self.learning_rate = 1e-3
+        self.learning_rate = 1e-5
         self.debug = True
 
     def organise_data(self, mode='train', test_data=None):
@@ -104,8 +104,8 @@ class SentenceEmbedder(object):
         else:
             self.device = torch.device('cpu')
 
-        if os.path.exists(os.path.join(os.getcwd(), 'av_sent_emb_3_layer_glove.MODEL')):
-            self.neural_model = torch.load(os.path.join(os.getcwd(), 'av_sent_emb_3_layer_glove.MODEL'))
+        if os.path.exists(os.path.join(os.getcwd(), 'bn_av_sent_emb_3_layer_glove.MODEL')):
+            self.neural_model = torch.load(os.path.join(os.getcwd(), 'bn_av_sent_emb_3_layer_glove.MODEL'))
             self.neural_model.to(self.device)
             return
 
@@ -155,7 +155,7 @@ class SentenceEmbedder(object):
                 loss.backward()
                 optimizer.step()
             print("Loss: ", av_loss * 1.0 / len(X_embed))
-        torch.save(model, os.path.join(os.getcwd(), 'av_sent_emb_3_layer_glove.MODEL'))
+        torch.save(model, os.path.join(os.getcwd(), 'bn_av_sent_emb_3_layer_glove.MODEL'))
         if model_type == 'feed_forward_bn':
             percent_data = 0.3
             model.set_entropy_thresholds(get_entropy_thresholds(entropies, percent_data))
@@ -167,7 +167,7 @@ class SentenceEmbedder(object):
             self.device = torch.device('cuda')
         else:
             self.device = torch.device('cpu')
-        self.neural_model = torch.load(os.path.join(os.getcwd(), 'av_sent_emb_3_layer_glove.MODEL'))
+        self.neural_model = torch.load(os.path.join(os.getcwd(), 'bn_av_sent_emb_3_layer_glove.MODEL'))
         self.neural_model.to(self.device)
         X, y = self.organise_data(mode='test', test_data=test)
         X = self.generate_embeddings(mode='test', test_data=X)
@@ -195,3 +195,5 @@ class SentenceEmbedder(object):
         y = y.data.numpy()
         acc = accuracy(y, pred)
         print("Accuracy: ", acc)
+        print("F1 macro: ", f1_score(y, pred, average='macro'))
+        print("F1 micro: ", f1_score(y, pred, average='micro'))
