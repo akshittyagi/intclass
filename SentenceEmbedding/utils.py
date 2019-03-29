@@ -1,5 +1,6 @@
 import numpy as np
 from gensim.models.callbacks import CallbackAny2Vec
+import numpy as np
 
 class EpochLogger(CallbackAny2Vec):
 
@@ -21,6 +22,9 @@ class MonitorLossLogger(CallbackAny2Vec):
 def fb_top_intent(intents):
     return intents.split()[0][1:]
 
+def accuracy(y_true, y_pred):
+    return np.sum(y_true == y_pred) * 1.0 / len(y_true)
+
 def get_branchy_exit_weights(num, span):
     lis = []
     for i in range(0, num):
@@ -34,4 +38,3 @@ def get_entropy_thresholds(entropies, percent_data):
     for row in entropies:
         thresholds.append(np.sum(row) / len(row))
     return thresholds
-        
