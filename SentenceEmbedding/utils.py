@@ -24,7 +24,7 @@ def fb_top_intent(intents):
 def get_branchy_exit_weights(num, span):
     lis = []
     for i in range(0, num):
-        lis.append(span[0] + (span[1]-span[0])(1.0/(i + 1)))
+        lis.append(span[0] + (span[1]-span[0])*(1.0/(i + 1)))
     return lis
 
 def get_entropy_thresholds(entropies, percent_data):

@@ -94,7 +94,7 @@ class SentenceEmbedder(object):
         self.organise_data()
         if self.debug:
             print("Data Organized")
-        X_embed = self.generate_embeddings(net='rnn')
+        X_embed = self.generate_embeddings(net='fcn')
         if self.debug:
             print("Embeddings Generated")
 
@@ -125,9 +125,9 @@ class SentenceEmbedder(object):
         elif model_type == 'feed_forward_bn':
             entropies = []
             exit_weights = get_branchy_exit_weights(num=3, span=[0, 1])
-            model = ThreeLayerBN(input_dim=self.dim, output_dim=len(self.hashed_class), dimensions=[100, 75, 50], init_exit_weights=exit_weights)
+            model = ThreeLayerBN(input_dim=self.dim, output_dim=len(self.hashed_classes), dimensions=[100, 75, 50], init_exit_weights=exit_weights)
 
-        model.to(self.device)
+        model.to(self.device)   
         optimizer = optim.Adam(model.parameters(), lr=self.learning_rate, betas=(0.9, 0.999), eps=1e-08, amsgrad=False)
         for epoch in range(self.neural_epochs):
             if self.debug:
@@ -142,13 +142,14 @@ class SentenceEmbedder(object):
                 x = x.to(self.device)
                 y_idx = y_idx.to(self.device)
                 if model_type == 'feed_forward_bn':
-                    scores, entropy = model(x, y)
+                    scores, entropy = model(x, y_idx)
                     entropies.append(entropy)
+                    loss = scores
                 else:
                     scores = model(x)
-                scores = torch.reshape(scores, (1, -1))
-                y_idx = y_idx.reshape(1)
-                loss = F.cross_entropy(scores, y_idx)
+                    scores = torch.reshape(scores, (1, -1))
+                    y_idx = y_idx.reshape(1)
+                    loss = F.cross_entropy(scores, y_idx)
                 av_loss += loss.data.item()
                 optimizer.zero_grad()
                 loss.backward()
