@@ -12,6 +12,7 @@ from Neural import SingleLayer, ThreeLayer, StackedLSTM, ThreeLayerBN
 from utils import get_branchy_exit_weights, get_entropy_thresholds, accuracy
 from sklearn.metrics import f1_score
 
+
 class SentenceEmbedder(object):
 
     def __init__(self, train_data, dev_data, embedding='glove', dim=300, min_count=1, epochs=10):
@@ -21,8 +22,8 @@ class SentenceEmbedder(object):
         self.dim = dim
         self.min_count = min_count
         self.epochs = epochs * 2
-        self.neural_epochs = epochs
-        self.learning_rate = 1e-3
+        self.neural_epochs = 5
+        self.learning_rate = 1e-1
         self.debug = True
 
     def organise_data(self, mode='train', test_data=None):
@@ -38,9 +39,13 @@ class SentenceEmbedder(object):
             self.y = classes_tr
         if mode == 'test':
             zipped_data_tst = list(zip(*test_data))
-            sentences = list(zipped_data_tst[0])
-            sentences = [sentence.split() for sentence in sentences]
-            classes = [self.hashed_classes[intent] for intent in list(zipped_data_tst[1])]
+            sentences = []
+            classes = []
+            for idx in range(len(zipped_data_tst[0])):
+                if zipped_data_tst[1][idx] not in self.hashed_classes:
+                    continue
+                sentences.append(zipped_data_tst[0][idx].split())
+                classes.append(self.hashed_classes[zipped_data_tst[1][idx]])
             return sentences, classes
 
     def generate_embeddings(self, mode='train', net='fcn', test_data=None):
@@ -127,7 +132,7 @@ class SentenceEmbedder(object):
             exit_weights = get_branchy_exit_weights(num=3, span=[0, 1])
             model = ThreeLayerBN(input_dim=self.dim, output_dim=len(self.hashed_classes), dimensions=[100, 75, 50], init_exit_weights=exit_weights)
 
-        model.to(self.device)   
+        model.to(self.device)
         optimizer = optim.Adam(model.parameters(), lr=self.learning_rate, betas=(0.9, 0.999), eps=1e-08, amsgrad=False)
         for epoch in range(self.neural_epochs):
             if self.debug:
