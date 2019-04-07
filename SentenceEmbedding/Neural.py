@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
+
 class SingleLayer(nn.Module):
 
     def __init__(self, input_dim, output_dim):
@@ -32,6 +33,7 @@ class ThreeLayer(nn.Module):
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
         return x
+
 
 class ThreeLayerBN(nn.Module):
 
@@ -77,7 +79,7 @@ class ThreeLayerBN(nn.Module):
         sm_3 = F.softmax(exit_3)
         neg_entropy_3 = torch.sum(sm_3 * torch.log(sm_3))
         loss_3 = self.scale_weight_3(F.cross_entropy(torch.reshape(exit_3, (1, -1)), y).reshape(1, 1))
-        return (loss_1 + loss_2 + loss_3) / 3, [neg_entropy_1, neg_entropy_2, neg_entropy_3]    
+        return (loss_1 + loss_2 + loss_3) / 3, [neg_entropy_1, neg_entropy_2, neg_entropy_3]
 
     def set_entropy_thresholds(self, thresholds):
         self.entropy_thresholds = thresholds
@@ -98,6 +100,7 @@ class ThreeLayerBN(nn.Module):
         x = F.relu(self.fc3(x))
         exit_3 = self.exit_3(x)
         return exit_3
+
 
 class StackedLSTM(nn.Module):
 
@@ -120,11 +123,11 @@ class StackedLSTM(nn.Module):
 
     def forward(self, x):
         inp = self.inp(x)
-        lstm_out = inp.unsqueeze(0)
+        lstm_out = inp
 
         for i, layer in enumerate(self.rnns):
             lstm_out, (h, c) = layer(lstm_out)
 
-        logits = self.out(lstm_out)
+        logits = self.out(h)
 
         return logits

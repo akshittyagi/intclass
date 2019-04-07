@@ -1,4 +1,6 @@
 import os
+import time
+import random
 
 import numpy as np
 import torch
@@ -15,15 +17,16 @@ from sklearn.metrics import f1_score
 
 class SentenceEmbedder(object):
 
-    def __init__(self, train_data, dev_data, embedding='glove', dim=300, min_count=1, epochs=10):
+    def __init__(self, train_data, dev_data, embedding='glove', dim=300, min_count=1, epochs=10, batch_size=64):
         self.tr = train_data
         self.dev = dev_data
         self.embedding = embedding
         self.dim = dim
         self.min_count = min_count
-        self.epochs = epochs * 2
+        self.epochs = epochs
+        self.batch_size = batch_size
         self.neural_epochs = 5
-        self.learning_rate = 1e-1
+        self.learning_rate = 1e-3
         self.debug = True
 
     def organise_data(self, mode='train', test_data=None):
@@ -58,15 +61,17 @@ class SentenceEmbedder(object):
                 if net == 'fcn':
                     curr_sentence = np.zeros(self.dim)
                     for word in sentence:
-                        embed = emb.model[word]
-                        curr_sentence += embed
+                        if word in self.embedding_obj.model:
+                            embed = self.embedding_obj.model[word]
+                            curr_sentence += embed
                     curr_sentence /= len(sentence)
                 if net == 'rnn':
                     curr_sentence = np.zeros([20, self.dim])
                     for idx, word in enumerate(sentence):
                         if idx < 20:
-                            embed = emb.model[word]
-                            curr_sentence[idx] = embed
+                            if word in self.embedding_obj.model:
+                                embed = self.embedding_obj.model[word]
+                                curr_sentence[idx] = embed
                         else:
                             break
 
@@ -87,7 +92,7 @@ class SentenceEmbedder(object):
                     for idx, word in enumerate(sentence):
                         if idx < 20:
                             if word in self.embedding_obj.model:
-                                embed = emb.model[word]
+                                embed = self.embedding_obj.model[word]
                                 curr_sentence[idx] = embed
 
                     X.append(curr_sentence)
@@ -95,11 +100,15 @@ class SentenceEmbedder(object):
             return X
 
     def train(self, train, dev, model_type='recurrent'):
+        if model_type == 'recurrent':
+            network = 'rnn'
+        else:
+            network = 'fcn'
         self.model_type = model_type
         self.organise_data()
         if self.debug:
             print("Data Organized")
-        X_embed = self.generate_embeddings(net='fcn')
+        X_embed = self.generate_embeddings(net=network)
         if self.debug:
             print("Embeddings Generated")
 
@@ -108,11 +117,6 @@ class SentenceEmbedder(object):
             self.device = torch.device('cuda')
         else:
             self.device = torch.device('cpu')
-
-        if os.path.exists(os.path.join(os.getcwd(), 'bn_av_sent_emb_3_layer_glove.MODEL')):
-            self.neural_model = torch.load(os.path.join(os.getcwd(), 'bn_av_sent_emb_3_layer_glove.MODEL'))
-            self.neural_model.to(self.device)
-            return
 
         X_embed = torch.from_numpy(np.array(X_embed)).double()
         y = torch.from_numpy(np.array(self.y)).double()
@@ -132,41 +136,64 @@ class SentenceEmbedder(object):
             exit_weights = get_branchy_exit_weights(num=3, span=[0, 1])
             model = ThreeLayerBN(input_dim=self.dim, output_dim=len(self.hashed_classes), dimensions=[100, 75, 50], init_exit_weights=exit_weights)
 
+        if os.path.exists(os.path.join(os.getcwd(), 'bn_av_sent_emb_3_layer_glove.MODEL')):
+            self.neural_model = torch.load(os.path.join(os.getcwd(), 'bn_av_sent_emb_3_layer_glove.MODEL'))
+            self.neural_model.to(self.device)
+            return
+
         model.to(self.device)
         optimizer = optim.Adam(model.parameters(), lr=self.learning_rate, betas=(0.9, 0.999), eps=1e-08, amsgrad=False)
-        for epoch in range(self.neural_epochs):
+
+        num_examples = len(X_embed)
+        batches = [(start, start + self.batch_size) for start in range(0, num_examples, self.batch_size)]
+
+        for epoch in range(self.epochs):
             if self.debug:
-                print("At epoch: ", epoch + 1)
-            av_loss = 0
-            for idx, x in enumerate(X_embed):
-                if self.debug and idx % 10000 == 0:
-                    print("At datapoint: ", idx)
-                if model_type == 'recurrent':
-                    model.train()
-                y_idx = y[idx]
-                x = x.to(self.device)
+                print("At epoch: ", epoch)
+            av_loss = 0.
+            start_time = time.time()
+            random.shuffle(batches)
+            for idx, (start, end) in enumerate(batches):
+                # for idx, x in enumerate(X_embed):
+                batch = X_embed[start:end]
+                # if self.debug and idx % 10000 == 0:
+                if idx % 100 == 0:
+                    print("At batch: ", idx)
+                # if model_type == 'recurrent':
+                #     model.train()
+                # y_idx = y[idx]
+                y_idx = y[start:end]
+                # x = x.to(self.device)
+                batch = batch.to(self.device)
                 y_idx = y_idx.to(self.device)
                 if model_type == 'feed_forward_bn':
-                    scores, entropy = model(x, y_idx)
+                    scores, entropy = model(batch, y_idx)
                     entropies.append(entropy)
                     loss = scores
                 else:
-                    scores = model(x)
-                    scores = torch.reshape(scores, (1, -1))
-                    y_idx = y_idx.reshape(1)
+                    scores = model(batch)
+                    # scores = torch.reshape(scores, (1, -1))
+                    # y_idx = y_idx.reshape(1)
+                    scores = scores.squeeze()
                     loss = F.cross_entropy(scores, y_idx)
                 av_loss += loss.data.item()
-                optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-            print("Loss: ", av_loss * 1.0 / len(X_embed))
+                optimizer.zero_grad()
+
+            print("Loss: ", av_loss * 1.0 / len(batch))
+            print("Time:", time.time() - start_time)
         torch.save(model, os.path.join(os.getcwd(), 'bn_av_sent_emb_3_layer_glove.MODEL'))
         if model_type == 'feed_forward_bn':
             percent_data = 0.3
             model.set_entropy_thresholds(get_entropy_thresholds(entropies, percent_data))
         self.neural_model = model
 
-    def test(self, test):
+    def test(self, test, model_type='recurrent'):
+        if model_type == 'recurrent':
+            network = 'rnn'
+        else:
+            network = 'fcn'
         self.device = ""
         if torch.cuda.is_available():
             self.device = torch.device('cuda')
@@ -175,7 +202,7 @@ class SentenceEmbedder(object):
         self.neural_model = torch.load(os.path.join(os.getcwd(), 'bn_av_sent_emb_3_layer_glove.MODEL'))
         self.neural_model.to(self.device)
         X, y = self.organise_data(mode='test', test_data=test)
-        X = self.generate_embeddings(mode='test', test_data=X)
+        X = self.generate_embeddings(mode='test', test_data=X, net=network)
 
         X = torch.from_numpy(np.array(X)).double()
         y = torch.from_numpy(np.array(y)).double()
@@ -186,19 +213,33 @@ class SentenceEmbedder(object):
         X = Variable(X).float()
         y = Variable(y).type(torch.LongTensor)
         pred = []
-        for idx, x in enumerate(X):
-            y_idx = y[idx]
-            x = x.to(self.device)
+        num_examples = len(X)
+        batches = [(start, start + self.batch_size) for start in range(0, num_examples, self.batch_size)]
+        # for idx, x in enumerate(X):
+        for idx, (start, end) in enumerate(batches):
+            batch = X[start:end]
+            y_idx = y[start:end]
+            # x = x.to(self.device)
+            batch = batch.to(self.device)
             y_idx = y_idx.to(self.device)
-            if self.model_type == 'feed_forward_bn':
-                scores = self.neural_model.forward_test(x)
+            if self.model_type == 'feed_forward':
+                scores = self.neural_model(batch)
+                _, indices = torch.max(scores, 1)
+            elif self.model_type == 'feed_forward_bn':
+                scores = self.neural_model.forward_test(batch)
+                _, indices = torch.max(scores, 0)
             else:
-                scores = self.neural_model(x)
-            _, indices = torch.max(scores, 0)
-            pred.append(indices.item())
+                scores = self.neural_model(batch)
+                indices = torch.argmax(scores, 2)
+                indices = torch.transpose(indices, 0, 1).squeeze()
+            indices = indices.cpu()
+            indices = np.array(indices)
+            pred.extend(indices)
         pred = np.array(pred)
+        # print(pred.shape)
         y = y.data.numpy()
         acc = accuracy(y, pred)
+
         print("Accuracy: ", acc)
         print("F1 macro: ", f1_score(y, pred, average='macro'))
         print("F1 micro: ", f1_score(y, pred, average='micro'))
