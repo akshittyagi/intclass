@@ -158,15 +158,15 @@ class StackedLSTMBN(nn.Module):
             self.scale_weights[i].weight.data.fill_(init_exit_weights[i])
             self.scale_weights[i].bias.data.fill_(0)
 
-            # nn.init.kaiming_normal_(self.exits[i].weight)
+            nn.init.kaiming_normal_(self.exits[i].weight)
 
-        # nn.init.kaiming_normal_(self.inp.weight)
+        nn.init.kaiming_normal_(self.inp.weight)
 
         self.entropy_thresholds = [] * self.num_layers
 
     def forward(self, batch, labels):
         # labels = labels.unsqueeze(1).squeeze()
-        loss = [None for i in range(self.num_layers)]
+        loss = 0.
         neg_entropy = [None for i in range(self.num_layers)]
 
         inp = self.inp(batch)
@@ -178,9 +178,9 @@ class StackedLSTMBN(nn.Module):
             exit_i = self.exits[i](h).squeeze()
             softmax_i = F.softmax(exit_i, dim=0)
             neg_entropy[i] = torch.sum(softmax_i * torch.log(softmax_i))
-            loss[i] = self.scale_weights[i](F.cross_entropy(exit_i, labels).reshape(1, 1))
+            loss += self.scale_weights[i](F.cross_entropy(exit_i, labels).reshape(1, 1))
 
-        return np.sum(loss) / self.num_layers, neg_entropy
+        return loss / self.num_layers, neg_entropy
 
     def set_entropy_thresholds(self, thresholds):
         self.entropy_thresholds = thresholds
