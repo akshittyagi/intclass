@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from torch.autograd.variable import Variable
 
 from Embeddings import Embed
-from Neural import SingleLayer, ThreeLayer, StackedLSTM, ThreeLayerBN
+from Neural import SingleLayer, ThreeLayer, StackedLSTM, ThreeLayerBN, StackedLSTMBN
 from utils import get_branchy_exit_weights, get_entropy_thresholds, accuracy
 from sklearn.metrics import f1_score
 
@@ -100,7 +100,7 @@ class SentenceEmbedder(object):
             return X
 
     def train(self, train, dev, model_type='recurrent'):
-        if model_type == 'recurrent':
+        if model_type == 'recurrent' or model_type == 'recurrent_bn':
             network = 'rnn'
         else:
             network = 'fcn'
@@ -135,6 +135,10 @@ class SentenceEmbedder(object):
             entropies = []
             exit_weights = get_branchy_exit_weights(num=3, span=[0, 1])
             model = ThreeLayerBN(input_dim=self.dim, output_dim=len(self.hashed_classes), dimensions=[100, 75, 50], init_exit_weights=exit_weights)
+        else:
+            entropies = []
+            exit_weights = get_branchy_exit_weights(num=3, span=[0, 1])
+            model = StackedLSTMBN(output_dim=len(self.hashed_classes), embedding_dim=self.dim, init_exit_weights=exit_weights)
 
         if os.path.exists(os.path.join(os.getcwd(), 'bn_av_sent_emb_3_layer_glove.MODEL')):
             self.neural_model = torch.load(os.path.join(os.getcwd(), 'bn_av_sent_emb_3_layer_glove.MODEL'))
@@ -150,10 +154,10 @@ class SentenceEmbedder(object):
         for epoch in range(self.epochs):
             if self.debug:
                 print("At epoch: ", epoch)
-            av_loss = 0.
             start_time = time.time()
             random.shuffle(batches)
             for idx, (start, end) in enumerate(batches):
+                av_loss = 0.
                 # for idx, x in enumerate(X_embed):
                 batch = X_embed[start:end]
                 # if self.debug and idx % 10000 == 0:
@@ -166,7 +170,7 @@ class SentenceEmbedder(object):
                 # x = x.to(self.device)
                 batch = batch.to(self.device)
                 y_idx = y_idx.to(self.device)
-                if model_type == 'feed_forward_bn':
+                if model_type == 'feed_forward_bn' or model_type == 'recurrent_bn':
                     scores, entropy = model(batch, y_idx)
                     entropies.append(entropy)
                     loss = scores
@@ -181,16 +185,16 @@ class SentenceEmbedder(object):
                 optimizer.step()
                 optimizer.zero_grad()
 
-            print("Loss: ", av_loss * 1.0 / len(batch))
+            print("Loss: ", av_loss / len(batch))
             print("Time:", time.time() - start_time)
-        torch.save(model, os.path.join(os.getcwd(), 'bn_av_sent_emb_3_layer_glove.MODEL'))
-        if model_type == 'feed_forward_bn':
+        if model_type == 'feed_forward_bn' or model_type == 'recurrent_bn':
             percent_data = 0.3
             model.set_entropy_thresholds(get_entropy_thresholds(entropies, percent_data))
+        torch.save(model, os.path.join(os.getcwd(), 'bn_av_sent_emb_3_layer_glove.MODEL'))
         self.neural_model = model
 
     def test(self, test, model_type='recurrent'):
-        if model_type == 'recurrent':
+        if model_type == 'recurrent' or model_type == 'recurrent_bn':
             network = 'rnn'
         else:
             network = 'fcn'
@@ -225,18 +229,21 @@ class SentenceEmbedder(object):
             if self.model_type == 'feed_forward':
                 scores = self.neural_model(batch)
                 _, indices = torch.max(scores, 1)
-            elif self.model_type == 'feed_forward_bn':
+            elif self.model_type == 'feed_forward_bn':  # or self.model_type == 'recurrent_bn':
                 scores = self.neural_model.forward_test(batch)
                 _, indices = torch.max(scores, 0)
             else:
-                scores = self.neural_model(batch)
+                if self.model_type == 'recurrent_bn':
+                    scores = self.neural_model.forward_test(batch)
+                else:
+                    scores = self.neural_model(batch)
                 indices = torch.argmax(scores, 2)
                 indices = torch.transpose(indices, 0, 1).squeeze()
             indices = indices.cpu()
             indices = np.array(indices)
             pred.extend(indices)
+            print(indices)
         pred = np.array(pred)
-        # print(pred.shape)
         y = y.data.numpy()
         acc = accuracy(y, pred)
 

@@ -121,8 +121,8 @@ class StackedLSTM(nn.Module):
         nn.init.kaiming_normal_(self.inp.weight)
         nn.init.kaiming_normal_(self.out.weight)
 
-    def forward(self, x):
-        inp = self.inp(x)
+    def forward(self, batch):
+        inp = self.inp(batch)
         lstm_out = inp
 
         for i, layer in enumerate(self.rnns):
@@ -131,3 +131,71 @@ class StackedLSTM(nn.Module):
         logits = self.out(h)
 
         return logits
+
+
+class StackedLSTMBN(nn.Module):
+    def __init__(self, output_dim, init_exit_weights, hidden_dim=1200, embedding_dim=300, num_layers=3):
+        super(StackedLSTMBN, self).__init__()
+
+        self.hidden_dim = hidden_dim
+        self.embedding_dim = embedding_dim
+        self.output_dim = output_dim
+        self.num_layers = num_layers
+
+        self.inp = nn.Linear(self.embedding_dim, self.hidden_dim)
+        self.rnns = [nn.LSTM(self.hidden_dim,
+                             self.hidden_dim, batch_first=True)
+                     for i in range(self.num_layers)]
+        self.rnns = torch.nn.ModuleList(self.rnns)
+        self.exits = [nn.Linear(self.hidden_dim,
+                                self.output_dim)
+                      for i in range(self.num_layers)]
+        self.exits = torch.nn.ModuleList(self.exits)
+
+        self.scale_weights = [nn.Linear(1, 1) for i in range(self.num_layers)]
+        self.scale_weights = torch.nn.ModuleList(self.scale_weights)
+        for i in range(num_layers):
+            self.scale_weights[i].weight.data.fill_(init_exit_weights[i])
+            self.scale_weights[i].bias.data.fill_(0)
+
+            # nn.init.kaiming_normal_(self.exits[i].weight)
+
+        # nn.init.kaiming_normal_(self.inp.weight)
+
+        self.entropy_thresholds = [] * self.num_layers
+
+    def forward(self, batch, labels):
+        # labels = labels.unsqueeze(1).squeeze()
+        loss = [None for i in range(self.num_layers)]
+        neg_entropy = [None for i in range(self.num_layers)]
+
+        inp = self.inp(batch)
+        lstm_out = inp
+
+        for i, layer in enumerate(self.rnns):
+            lstm_out, (h, c) = layer(lstm_out)
+
+            exit_i = self.exits[i](h).squeeze()
+            softmax_i = F.softmax(exit_i, dim=0)
+            neg_entropy[i] = torch.sum(softmax_i * torch.log(softmax_i))
+            loss[i] = self.scale_weights[i](F.cross_entropy(exit_i, labels).reshape(1, 1))
+
+        return np.sum(loss) / self.num_layers, neg_entropy
+
+    def set_entropy_thresholds(self, thresholds):
+        self.entropy_thresholds = thresholds
+
+    def forward_test(self, batch):
+        inp = self.inp(batch)
+        lstm_out = inp
+
+        for i, layer in enumerate(self.rnns):
+            lstm_out, (h, c) = layer(lstm_out)
+
+            exit_i = self.exits[i](h)
+            softmax_i = F.softmax(exit_i, dim=0)
+            neg_entropy_i = torch.sum(softmax_i * torch.log(softmax_i))
+            if neg_entropy_i < self.entropy_thresholds[i]:
+                return exit_i
+
+        return exit_i
