@@ -154,10 +154,10 @@ class SentenceEmbedder(object):
         for epoch in range(self.epochs):
             if self.debug:
                 print("At epoch: ", epoch)
+            av_loss = 0.
             start_time = time.time()
             random.shuffle(batches)
             for idx, (start, end) in enumerate(batches):
-                av_loss = 0.
                 # for idx, x in enumerate(X_embed):
                 batch = X_embed[start:end]
                 # if self.debug and idx % 10000 == 0:
