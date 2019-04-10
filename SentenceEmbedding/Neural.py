@@ -63,23 +63,23 @@ class ThreeLayerBN(nn.Module):
         self.entropy_thresholds = [] * 3
 
     def forward(self, x, y):
-        y = y.reshape(1)
+        batch_size = x.shape[0]
         x = F.relu(self.fc1(x))
         exit_1 = self.exit_1(x)
         sm_1 = F.softmax(exit_1)
-        neg_entropy_1 = torch.sum(sm_1 * torch.log(sm_1))
-        loss_1 = self.scale_weight_1(F.cross_entropy(torch.reshape(exit_1, (1, -1)), y).reshape(1, 1))
+        neg_entropy_1 = torch.sum(torch.sum(torch.mul(sm_1, torch.log(sm_1)), dim=1)) / batch_size
+        loss_1 = self.scale_weight_1(F.cross_entropy(exit_1, y).reshape(1, 1))
         x = F.relu(self.fc2(x))
         exit_2 = self.exit_2(x)
         sm_2 = F.softmax(exit_2)
-        neg_entropy_2 = torch.sum(sm_2 * torch.log(sm_2))
-        loss_2 = self.scale_weight_2(F.cross_entropy(torch.reshape(exit_2, (1, -1)), y).reshape(1, 1))
+        neg_entropy_2 = torch.sum(torch.sum(torch.mul(sm_2, torch.log(sm_2)), dim=1)) / batch_size
+        loss_2 = self.scale_weight_1(F.cross_entropy(exit_2, y).reshape(1, 1))
         x = F.relu(self.fc3(x))
         exit_3 = self.exit_3(x)
         sm_3 = F.softmax(exit_3)
-        neg_entropy_3 = torch.sum(sm_3 * torch.log(sm_3))
-        loss_3 = self.scale_weight_3(F.cross_entropy(torch.reshape(exit_3, (1, -1)), y).reshape(1, 1))
-        return (loss_1 + loss_2 + loss_3) / 3, [neg_entropy_1, neg_entropy_2, neg_entropy_3]
+        neg_entropy_3 = torch.sum(torch.sum(torch.mul(sm_3, torch.log(sm_3)), dim=1)) / batch_size
+        loss_3 = self.scale_weight_1(F.cross_entropy(exit_3, y).reshape(1, 1))
+        return (loss_1 + loss_2 + loss_3) / 3, [neg_entropy_1.data.item(), neg_entropy_2.data.item(), neg_entropy_3.data.item()]
 
     def set_entropy_thresholds(self, thresholds):
         self.entropy_thresholds = thresholds
