@@ -230,7 +230,6 @@ class SentenceEmbedder(object):
                     indices = np.array(indices)
                     pred.extend(indices)
         else:
-            import pdb; pdb.set_trace()
             for idx, x in enumerate(X):
                 x = x.to(self.device)
                 y_idx = y[idx]
