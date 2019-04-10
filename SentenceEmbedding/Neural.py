@@ -176,7 +176,7 @@ class StackedLSTMBN(nn.Module):
             lstm_out, (h, c) = layer(lstm_out)
 
             exit_i = self.exits[i](h).squeeze()
-            softmax_i = F.softmax(exit_i, dim=0)
+            softmax_i = F.softmax(exit_i, dim=1)
             neg_entropy[i] = torch.sum(softmax_i * torch.log(softmax_i))
             loss += self.scale_weights[i](F.cross_entropy(exit_i, labels).reshape(1, 1))
 
@@ -193,7 +193,7 @@ class StackedLSTMBN(nn.Module):
             lstm_out, (h, c) = layer(lstm_out)
 
             exit_i = self.exits[i](h)
-            softmax_i = F.softmax(exit_i, dim=0)
+            softmax_i = F.softmax(exit_i, dim=1)
             neg_entropy_i = torch.sum(softmax_i * torch.log(softmax_i))
             if neg_entropy_i < self.entropy_thresholds[i]:
                 return exit_i
