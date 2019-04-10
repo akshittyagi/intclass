@@ -17,7 +17,7 @@ from sklearn.metrics import f1_score
 
 class SentenceEmbedder(object):
 
-    def __init__(self, train_data, dev_data, embedding='glove', dim=300, min_count=1, epochs=10, batch_size=64):
+    def __init__(self, train_data, dev_data, embedding='glove', dim=300, min_count=1, epochs=10, batch_size=64, debug=True):
         self.tr = train_data
         self.dev = dev_data
         self.embedding = embedding
@@ -27,7 +27,7 @@ class SentenceEmbedder(object):
         self.batch_size = batch_size
         self.neural_epochs = 5
         self.learning_rate = 1e-3
-        self.debug = True
+        self.debug = debug
 
     def organise_data(self, mode='train', test_data=None):
         if mode == 'train':
@@ -159,7 +159,7 @@ class SentenceEmbedder(object):
             random.shuffle(batches)
             for idx, (start, end) in enumerate(batches):
                 batch = X_embed[start:end]
-                if idx % 100 == 0:
+                if self.debug and idx % 100 == 0:
                     print("At batch: ", idx)
                 y_idx = y[start:end]
                 batch = batch.to(self.device)
@@ -178,8 +178,9 @@ class SentenceEmbedder(object):
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
-            print("Loss: ", av_loss / len(batch))
-            print("Time:", time.time() - start_time)
+            if self.debug:
+                print("Loss: ", av_loss / len(batch))
+                print("Time:", time.time() - start_time)
         if model_type == 'feed_forward_bn' or model_type == 'recurrent_bn':
             percent_data = 0.3
             model.set_entropy_thresholds(get_entropy_thresholds(entropies, percent_data))

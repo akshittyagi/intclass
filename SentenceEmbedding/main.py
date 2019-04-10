@@ -16,7 +16,8 @@ if __name__ == "__main__":
     #### FB ####
     dataset_loc = "../DataSets/top-dataset-semantic-parsing/"
     data_train, data_dev, data_test = data_loader(dataset_loc, dataset='fb')
-    sentence_embedder = SentenceEmbedder(train_data=data_train, dev_data=data_dev, epochs=5, batch_size=128)
+    epoch = 5
+    sentence_embedder = SentenceEmbedder(train_data=data_train, dev_data=data_dev, epochs=epoch, batch_size=128, debug=False)
     sentence_embedder.train(data_train, data_dev, model_type='feed_forward_bn')
     sentence_embedder.test(data_test, model_type='feed_forward_bn')
 
