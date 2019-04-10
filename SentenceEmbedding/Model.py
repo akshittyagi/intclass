@@ -158,16 +158,10 @@ class SentenceEmbedder(object):
             start_time = time.time()
             random.shuffle(batches)
             for idx, (start, end) in enumerate(batches):
-                # for idx, x in enumerate(X_embed):
                 batch = X_embed[start:end]
-                # if self.debug and idx % 10000 == 0:
                 if idx % 100 == 0:
                     print("At batch: ", idx)
-                # if model_type == 'recurrent':
-                #     model.train()
-                # y_idx = y[idx]
                 y_idx = y[start:end]
-                # x = x.to(self.device)
                 batch = batch.to(self.device)
                 y_idx = y_idx.to(self.device)
                 if model_type == 'feed_forward_bn' or model_type == 'recurrent_bn':
@@ -184,7 +178,6 @@ class SentenceEmbedder(object):
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
-
             print("Loss: ", av_loss / len(batch))
             print("Time:", time.time() - start_time)
         if model_type == 'feed_forward_bn' or model_type == 'recurrent_bn':
@@ -198,6 +191,10 @@ class SentenceEmbedder(object):
             network = 'rnn'
         else:
             network = 'fcn'
+        if model_type.split("_")[-1] == 'bn':
+            batching = 'off'
+        else:
+            batching = 'on'
         self.device = ""
         if torch.cuda.is_available():
             self.device = torch.device('cuda')
@@ -218,35 +215,43 @@ class SentenceEmbedder(object):
         y = Variable(y).type(torch.LongTensor)
         pred = []
         num_examples = len(X)
-        batches = [(start, start + self.batch_size) for start in range(0, num_examples, self.batch_size)]
-        # for idx, x in enumerate(X):
-        for idx, (start, end) in enumerate(batches):
-            batch = X[start:end]
-            y_idx = y[start:end]
-            # x = x.to(self.device)
-            batch = batch.to(self.device)
-            y_idx = y_idx.to(self.device)
-            if self.model_type == 'feed_forward':
-                scores = self.neural_model(batch)
-                _, indices = torch.max(scores, 1)
-            elif self.model_type == 'feed_forward_bn':  # or self.model_type == 'recurrent_bn':
-                scores = self.neural_model.forward_test(batch)
-                _, indices = torch.max(scores, 0)
-            else:
-                if self.model_type == 'recurrent_bn':
-                    scores = self.neural_model.forward_test(batch)
-                else:
+        
+        if batching == 'on':
+            batches = [(start, start + self.batch_size) for start in range(0, num_examples, self.batch_size)]
+            for idx, (start, end) in enumerate(batches):
+                batch = X[start:end]
+                y_idx = y[start:end]
+                batch = batch.to(self.device)
+                y_idx = y_idx.to(self.device)
+                if self.model_type == 'feed_forward':
                     scores = self.neural_model(batch)
-                indices = torch.argmax(scores, 2)
-                indices = torch.transpose(indices, 0, 1).squeeze()
-            indices = indices.cpu()
-            indices = np.array(indices)
-            pred.extend(indices)
-            print(indices)
+                    _, indices = torch.max(scores, 1)
+                    indices = indices.cpu()
+                    indices = np.array(indices)
+                    pred.extend(indices)
+        else:
+            import pdb; pdb.set_trace()
+            for idx, x in enumerate(X):
+                x = x.to(self.device)
+                y_idx = y[idx]
+                y_idx = y_idx.to(self.device)
+                if self.model_type == 'feed_forward_bn':  
+                    scores = self.neural_model.forward_test(x)
+                    _, indices = torch.max(scores, 0)
+                    pred.append(indices.data.item())
+                else:
+                    if self.model_type == 'recurrent_bn':
+                        scores = self.neural_model.forward_test(batch)
+                    else:
+                        scores = self.neural_model(batch)
+                    indices = torch.argmax(scores, 2)
+                    indices = torch.transpose(indices, 0, 1).squeeze()
+                    indices = indices.cpu()
+                    indices = np.array(indices)
+                    pred.extend(indices)
         pred = np.array(pred)
         y = y.data.numpy()
         acc = accuracy(y, pred)
-
         print("Accuracy: ", acc)
         print("F1 macro: ", f1_score(y, pred, average='macro'))
         print("F1 micro: ", f1_score(y, pred, average='micro'))
