@@ -166,6 +166,7 @@ class StackedLSTMBN(nn.Module):
 
     def forward(self, batch, labels):
         # labels = labels.unsqueeze(1).squeeze()
+        batch_size = batch.shape[0]
         loss = 0.
         neg_entropy = [None for i in range(self.num_layers)]
 
@@ -177,8 +178,11 @@ class StackedLSTMBN(nn.Module):
 
             exit_i = self.exits[i](h).squeeze()
             softmax_i = F.softmax(exit_i, dim=1)
-            neg_entropy[i] = torch.sum(softmax_i * torch.log(softmax_i))
+            neg_entropy[i] = torch.sum(softmax_i * torch.log(softmax_i)) / batch_size
             loss += self.scale_weights[i](F.cross_entropy(exit_i, labels).reshape(1, 1))
+
+        for elem in neg_entropy:
+            elem = elem.data.item()
 
         return loss / self.num_layers, neg_entropy
 
@@ -186,6 +190,7 @@ class StackedLSTMBN(nn.Module):
         self.entropy_thresholds = thresholds
 
     def forward_test(self, batch):
+        batch = batch.unsqueeze(0)
         inp = self.inp(batch)
         lstm_out = inp
 
@@ -196,6 +201,6 @@ class StackedLSTMBN(nn.Module):
             softmax_i = F.softmax(exit_i, dim=1)
             neg_entropy_i = torch.sum(softmax_i * torch.log(softmax_i))
             if neg_entropy_i < self.entropy_thresholds[i]:
-                return exit_i
+                return i, exit_i
 
-        return exit_i
+        return i, exit_i

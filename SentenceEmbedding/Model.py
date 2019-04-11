@@ -216,7 +216,8 @@ class SentenceEmbedder(object):
         y = Variable(y).type(torch.LongTensor)
         pred = []
         num_examples = len(X)
-        
+        exit_points = {}
+
         if batching == 'on':
             batches = [(start, start + self.batch_size) for start in range(0, num_examples, self.batch_size)]
             for idx, (start, end) in enumerate(batches):
@@ -227,38 +228,40 @@ class SentenceEmbedder(object):
                 if self.model_type == 'feed_forward':
                     scores = self.neural_model(batch)
                     _, indices = torch.max(scores, 1)
-                    indices = indices.cpu()
-                    indices = np.array(indices)
-                    pred.extend(indices)
+                elif self.model_type == 'recurrent':
+                    scores = self.neural_model(batch)
+                    indices = torch.argmax(scores, 2)
+                    indices = torch.transpose(indices, 0, 1).squeeze()
+                indices = indices.cpu()
+                indices = np.array(indices)
+                pred.extend(indices)
         else:
-            exit_points = {}
             for idx, x in enumerate(X):
                 x = x.to(self.device)
                 y_idx = y[idx]
                 y_idx = y_idx.to(self.device)
-                if self.model_type == 'feed_forward_bn':  
+                if self.model_type == 'feed_forward_bn':
                     exit_, scores = self.neural_model.forward_test(x)
                     _, indices = torch.max(scores, 0)
                     pred.append(indices.data.item())
-                    if exit_ in exit_points:
-                        exit_points[exit_] += 1
-                    else:
-                        exit_points[exit_] = 1
+                elif self.model_type == 'recurrent_bn':
+                    exit_, scores = self.neural_model.forward_test(x)
+                    indices = torch.argmax(scores, 2).squeeze()
+                    # indices = torch.transpose(indices, 0, 1).squeeze()
+                    # indices = indices.cpu()
+                    # indices = np.array(indices)
+                    pred.append(indices.data.item())
+
+                if exit_ in exit_points:
+                    exit_points[exit_] += 1
                 else:
-                    if self.model_type == 'recurrent_bn':
-                        scores = self.neural_model.forward_test(batch)
-                    else:
-                        scores = self.neural_model(batch)
-                    indices = torch.argmax(scores, 2)
-                    indices = torch.transpose(indices, 0, 1).squeeze()
-                    indices = indices.cpu()
-                    indices = np.array(indices)
-                    pred.extend(indices)
+                    exit_points[exit_] = 1
+
         pred = np.array(pred)
         y = y.data.numpy()
         acc = accuracy(y, pred)
         print(exit_points)
-        print([v / len(y) for k,v in exit_points.items()])
+        print([v / len(y) for k, v in exit_points.items()])
         print("Accuracy: ", acc)
         print("F1 macro: ", f1_score(y, pred, average='macro'))
         print("F1 micro: ", f1_score(y, pred, average='micro'))
