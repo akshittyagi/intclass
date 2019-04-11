@@ -90,16 +90,16 @@ class ThreeLayerBN(nn.Module):
         sm_1 = F.softmax(exit_1, dim=0)
         neg_entropy_1 = torch.sum(sm_1 * torch.log(sm_1))
         if neg_entropy_1 < self.entropy_thresholds[0]:
-            return exit_1
+            return 1, exit_1
         x = F.relu(self.fc2(x))
         exit_2 = self.exit_2(x)
         sm_2 = F.softmax(exit_2, dim=0)
         neg_entropy_2 = torch.sum(sm_2 * torch.log(sm_2))
         if neg_entropy_2 < self.entropy_thresholds[1]:
-            return exit_2
+            return 2, exit_2
         x = F.relu(self.fc3(x))
         exit_3 = self.exit_3(x)
-        return exit_3
+        return 3, exit_3
 
 
 class StackedLSTM(nn.Module):

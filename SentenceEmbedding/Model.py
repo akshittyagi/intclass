@@ -231,14 +231,19 @@ class SentenceEmbedder(object):
                     indices = np.array(indices)
                     pred.extend(indices)
         else:
+            exit_points = {}
             for idx, x in enumerate(X):
                 x = x.to(self.device)
                 y_idx = y[idx]
                 y_idx = y_idx.to(self.device)
                 if self.model_type == 'feed_forward_bn':  
-                    scores = self.neural_model.forward_test(x)
+                    exit_, scores = self.neural_model.forward_test(x)
                     _, indices = torch.max(scores, 0)
                     pred.append(indices.data.item())
+                    if exit_ in exit_points:
+                        exit_points[exit_] += 1
+                    else:
+                        exit_points[exit_] = 1
                 else:
                     if self.model_type == 'recurrent_bn':
                         scores = self.neural_model.forward_test(batch)
@@ -252,6 +257,8 @@ class SentenceEmbedder(object):
         pred = np.array(pred)
         y = y.data.numpy()
         acc = accuracy(y, pred)
+        print(exit_points)
+        print([v / len(y) for k,v in exit_points.items()])
         print("Accuracy: ", acc)
         print("F1 macro: ", f1_score(y, pred, average='macro'))
         print("F1 micro: ", f1_score(y, pred, average='micro'))
