@@ -8,6 +8,7 @@ import torch.utils.data
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd.variable import Variable
+from torch.nn.utils import clip_grad_norm_
 
 from Embeddings import Embed
 from Neural import SingleLayer, ThreeLayer, StackedLSTM, ThreeLayerBN, StackedLSTMBN
@@ -99,7 +100,7 @@ class SentenceEmbedder(object):
             X = np.array(X)
             return X
 
-    def train(self, train, dev, model_type='recurrent'):
+    def train(self, train, dev, clip=0, model_type='recurrent'):
         if model_type == 'recurrent' or model_type == 'recurrent_bn':
             network = 'rnn'
         else:
@@ -176,9 +177,21 @@ class SentenceEmbedder(object):
                     loss = F.cross_entropy(scores, y_idx)
                 av_loss += loss.data.item()
                 loss.backward()
+
+                if clip:
+                    total_norm = 0.
+                    for p in model.parameters():
+                        param_norm = p.grad.data.norm(2)
+                        total_norm += param_norm.item() ** 2
+                    clip_grad_norm_(model.parameters(), 100)
+
                 optimizer.step()
                 optimizer.zero_grad()
+            if clip:
+                total_norm = total_norm ** (1. / 2)
             if self.debug:
+                if clip:
+                    print('gradient norm: ', total_norm)
                 print("Loss: ", av_loss / len(batch))
                 print("Time:", time.time() - start_time)
         if model_type == 'feed_forward_bn' or model_type == 'recurrent_bn':
