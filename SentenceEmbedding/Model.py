@@ -180,18 +180,18 @@ class SentenceEmbedder(object):
 
                 if clip:
                     total_norm = 0.
+                    clip_grad_norm_(model.parameters(), clip)
                     for p in model.parameters():
                         param_norm = p.grad.data.norm(2)
                         total_norm += param_norm.item() ** 2
-                    clip_grad_norm_(model.parameters(), 100)
+                    total_norm = total_norm ** (1. / 2)
+                    if self.debug and idx % 100 == 0:
+                        print('gradient norm: ', total_norm)
 
                 optimizer.step()
                 optimizer.zero_grad()
-            if clip:
-                total_norm = total_norm ** (1. / 2)
+
             if self.debug:
-                if clip:
-                    print('gradient norm: ', total_norm)
                 print("Loss: ", av_loss / len(batch))
                 print("Time:", time.time() - start_time)
         if model_type == 'feed_forward_bn' or model_type == 'recurrent_bn':
