@@ -203,4 +203,4 @@ class StackedLSTMBN(nn.Module):
             if neg_entropy_i < self.entropy_thresholds[i]:
                 return i, exit_i
 
-        return i, exit_i
+        return i, exit_i 
