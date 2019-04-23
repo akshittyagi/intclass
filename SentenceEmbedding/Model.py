@@ -25,9 +25,6 @@ from pytorch_pretrained_bert.optimization import BertAdam, warmup_linear
 
 from Data import create_bert_examples, bert_examples_to_features
 from tqdm import tqdm, trange
-import logging
-
-logger = logging.getLogger(__name__)
 
 class SentenceEmbedder(object):
 
@@ -331,10 +328,10 @@ class SentenceEmbedder(object):
 
         train_features = bert_examples_to_features(train_examples, classes_uniq, 75, tokenizer)
 
-        logger.info("***** Running training *****")
-        logger.info("  Num examples = %d", len(train_examples))
-        logger.info("  Batch size = %d", self.batch_size)
-        logger.info("  Num steps = %d", num_train_opt_steps)
+        print('Training...')
+        print('Num examples: {}'.format(len(train_examples)))
+        print('Batch size: {}'.format(self.batch_size))
+        print('Num steps: {}'.format(num_train_opt_steps))
 
         all_input_ids = torch.tensor([f.input_ids for f in train_features], dtype=torch.long)
         all_input_mask = torch.tensor([f.input_mask for f in train_features], dtype=torch.long)
@@ -361,7 +358,8 @@ class SentenceEmbedder(object):
                 if self.n_gpu > 1:
                     loss = loss.mean()
 
-                print("epoch {}, step {} loss: {}".format(i, step, loss))
+                if step % 10 == 0:
+                    print('epoch {}, step {} loss: {}'.format(i, step, loss))
 
                 loss.backward()
 

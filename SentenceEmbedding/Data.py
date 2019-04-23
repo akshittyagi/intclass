@@ -2,14 +2,11 @@ import os
 import string
 import re
 import json
-import logging
 
 from nltk.tokenize import word_tokenize
 import sklearn
 
 from utils import fb_top_intent
-
-logger = logging.getLogger(__name__)
 
 
 class DataCleaner(object):
@@ -164,15 +161,12 @@ def bert_examples_to_features(examples, label_list, max_seq_len, tokenizer):
         label_id = label_map[ex.label]
 
         if ex_idx < 5:
-            logger.info("*** Example ***")
-            logger.info("guid: %s" % (ex.guid))
-            logger.info("tokens: %s" % " ".join(
-                    [str(x) for x in tokens]))
-            logger.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
-            logger.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
-            logger.info(
-                    "segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
-            logger.info("label: %s (id = %d)" % (ex.label, label_id))
+            print('Example {}'.format(ex_idx))
+            print('guid: {}'.format(ex.guid))
+            print('tokens: {}'.format(' '.join([str(x) for x in tokens])))
+            print('input_ids: {}'.format(' '.join([str(x) for x in input_mask])))
+            print('segment_ids: {}'.format(' '.join([str(x) for x in segment_ids])))
+            print('label: {}, label_id: {}'.format(ex.label, label_id))
 
         features.append(
             BERTInputFeatures(
