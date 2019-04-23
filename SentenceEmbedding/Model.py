@@ -27,7 +27,7 @@ class SentenceEmbedder(object):
         self.epochs = epochs
         self.batch_size = batch_size
         self.neural_epochs = 5
-        self.learning_rate = 1e-3
+        self.learning_rate = 1e-4
         self.debug = debug
 
     def organise_data(self, mode='train', test_data=None):
@@ -188,6 +188,13 @@ class SentenceEmbedder(object):
                     if self.debug and idx % 100 == 0:
                         print('gradient norm: ', total_norm)
 
+                # total_norm = 0.
+                # for p in model.parameters():
+                #     param_norm = p.grad.data.norm(2)
+                #     total_norm += param_norm.item() ** 2
+                # total_norm = total_norm ** (1. / 2)
+                # print('gradient norm: ', total_norm)
+
                 optimizer.step()
                 optimizer.zero_grad()
 
@@ -276,5 +283,8 @@ class SentenceEmbedder(object):
         print(exit_points)
         print([v / len(y) for k, v in exit_points.items()])
         print("Accuracy: ", acc)
-        print("F1 macro: ", f1_score(y, pred, average='macro'))
-        print("F1 micro: ", f1_score(y, pred, average='micro'))
+        f1_mac = f1_score(y, pred, average='macro')
+        f1_mic = f1_score(y, pred, average='micro')
+        print("F1 macro: ", f1_mac)
+        print("F1 micro: ", f1_mic)
+        return acc, f1_mac, f1_mic

@@ -184,7 +184,7 @@ class StackedLSTMBN(nn.Module):
         for elem in neg_entropy:
             elem = elem.data.item()
 
-        return loss / self.num_layers, neg_entropy
+        return loss, neg_entropy
 
     def set_entropy_thresholds(self, thresholds):
         self.entropy_thresholds = thresholds
@@ -203,4 +203,4 @@ class StackedLSTMBN(nn.Module):
             if neg_entropy_i < self.entropy_thresholds[i]:
                 return i, exit_i
 
-        return i, exit_i 
+        return i, exit_i
