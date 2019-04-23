@@ -9,12 +9,22 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd.variable import Variable
 from torch.nn.utils import clip_grad_norm_
+from torch.utils.data import (DataLoader, RandomSampler, SequentialSampler,
+                              TensorDataset)
+from torch.utils.data.distributed import DistributedSampler
+from torch.nn import CrossEntropyLoss
 
 from Embeddings import Embed
 from Neural import SingleLayer, ThreeLayer, StackedLSTM, ThreeLayerBN, StackedLSTMBN
 from utils import get_branchy_exit_weights, get_entropy_thresholds, accuracy
 from sklearn.metrics import f1_score
 
+from pytorch_pretrained_bert.modeling import BertForSequenceClassification, BertConfig
+from pytorch_pretrained_bert.tokenization import BertTokenizer
+from pytorch_pretrained_bert.optimization import BertAdam, warmup_linear
+
+from Data import create_bert_examples, bert_examples_to_features
+from tqdm import tqdm, trange
 
 class SentenceEmbedder(object):
 
@@ -283,8 +293,97 @@ class SentenceEmbedder(object):
         print(exit_points)
         print([v / len(y) for k, v in exit_points.items()])
         print("Accuracy: ", acc)
+<<<<<<< HEAD
         f1_mac = f1_score(y, pred, average='macro')
         f1_mic = f1_score(y, pred, average='micro')
         print("F1 macro: ", f1_mac)
         print("F1 micro: ", f1_mic)
         return acc, f1_mac, f1_mic
+=======
+        print("F1 macro: ", f1_score(y, pred, average='macro'))
+        print("F1 micro: ", f1_score(y, pred, average='micro'))
+
+    def train_bert(self):
+        zipped_data_tr = list(zip(*self.tr))
+        classes_tr = list(zipped_data_tr[1])
+        classes_uniq = list(set(classes_tr))
+        self.hashed_classes = {intent: idx for idx, intent in enumerate(classes_uniq)}
+
+        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
+        train_examples = create_bert_examples(self.tr, 'train')
+        num_train_opt_steps = int(len(train_examples) / self.batch_size) * self.epochs
+        num_labels = len(self.hashed_classes)
+        model = BertForSequenceClassification.from_pretrained('bert-base-uncased',
+                                                                cache_dir='./bert_cache/',
+                                                                num_labels=num_labels)
+        self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        if self.device == torch.device('cuda'):
+            self.n_gpu = torch.cuda.device_count()
+        model.to(self.device)
+
+        if self.n_gpu and self.n_gpu > 1:
+            model = torch.nn.DataParallel(model)
+
+        param_optimizer = list(model.named_parameters())
+        no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
+        optimizer_grouped_parameters = [
+            {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
+            {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+            ]
+
+        optimizer = BertAdam(optimizer_grouped_parameters,
+                             lr=self.learning_rate,
+                             warmup=0.1,
+                             t_total=num_train_opt_steps)
+
+        global_step = 0
+        tr_steps = 0
+        tr_loss = 0
+
+        train_features = bert_examples_to_features(train_examples, classes_uniq, 75, tokenizer)
+
+        print('Training...')
+        print('Num examples: {}'.format(len(train_examples)))
+        print('Batch size: {}'.format(self.batch_size))
+        print('Num steps: {}'.format(num_train_opt_steps))
+
+        all_input_ids = torch.tensor([f.input_ids for f in train_features], dtype=torch.long)
+        all_input_mask = torch.tensor([f.input_mask for f in train_features], dtype=torch.long)
+        all_segment_ids = torch.tensor([f.segment_ids for f in train_features], dtype=torch.long)
+        all_label_ids = torch.tensor([f.label_id for f in train_features], dtype=torch.long)
+
+        train_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label_ids)
+        train_sampler = RandomSampler(train_data)
+        train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=self.batch_size)
+
+        model.train()
+
+        for i in trange(self.epochs, desc="Epoch"):
+            tr_loss = 0
+            num_tr_examples, tr_steps = 0, 0
+            for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration")):
+                batch = tuple(t.to(self.device) for t in batch)
+                input_ids, input_mask, segment_ids, label_ids = batch
+                logits = model(input_ids, segment_ids, input_mask, labels=None)
+
+                loss_fn = CrossEntropyLoss()
+                loss = loss_fn(logits.view(-1, num_labels), label_ids.view(-1))
+
+                if self.n_gpu > 1:
+                    loss = loss.mean()
+
+                if step % 10 == 0:
+                    print('epoch {}, step {} loss: {}'.format(i, step, loss))
+
+                loss.backward()
+
+                tr_loss += loss.item()
+                num_tr_examples += input_ids.size(0)
+                tr_steps += 1
+
+                optimizer.step()
+                optimizer.zero_grad()
+                global_step += 1
+
+
+>>>>>>> a245ffdef29cbb9d714c64ee4d2e7e8c99c903a2
