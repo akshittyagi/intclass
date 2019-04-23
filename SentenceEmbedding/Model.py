@@ -381,6 +381,3 @@ class SentenceEmbedder(object):
                 optimizer.step()
                 optimizer.zero_grad()
                 global_step += 1
-
-
->>>>>> > a245ffdef29cbb9d714c64ee4d2e7e8c99c903a2
