@@ -26,6 +26,7 @@ from pytorch_pretrained_bert.optimization import BertAdam, warmup_linear
 from Data import create_bert_examples, bert_examples_to_features
 from tqdm import tqdm, trange
 
+
 class SentenceEmbedder(object):
 
     def __init__(self, train_data, dev_data, embedding='glove', dim=300, min_count=1, epochs=10, batch_size=64, debug=True):
@@ -293,15 +294,11 @@ class SentenceEmbedder(object):
         print(exit_points)
         print([v / len(y) for k, v in exit_points.items()])
         print("Accuracy: ", acc)
-<<<<<<< HEAD
         f1_mac = f1_score(y, pred, average='macro')
         f1_mic = f1_score(y, pred, average='micro')
         print("F1 macro: ", f1_mac)
         print("F1 micro: ", f1_mic)
         return acc, f1_mac, f1_mic
-=======
-        print("F1 macro: ", f1_score(y, pred, average='macro'))
-        print("F1 micro: ", f1_score(y, pred, average='micro'))
 
     def train_bert(self):
         zipped_data_tr = list(zip(*self.tr))
@@ -314,8 +311,8 @@ class SentenceEmbedder(object):
         num_train_opt_steps = int(len(train_examples) / self.batch_size) * self.epochs
         num_labels = len(self.hashed_classes)
         model = BertForSequenceClassification.from_pretrained('bert-base-uncased',
-                                                                cache_dir='./bert_cache/',
-                                                                num_labels=num_labels)
+                                                              cache_dir='./bert_cache/',
+                                                              num_labels=num_labels)
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         if self.device == torch.device('cuda'):
             self.n_gpu = torch.cuda.device_count()
@@ -329,7 +326,7 @@ class SentenceEmbedder(object):
         optimizer_grouped_parameters = [
             {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
             {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
-            ]
+        ]
 
         optimizer = BertAdam(optimizer_grouped_parameters,
                              lr=self.learning_rate,
@@ -386,4 +383,4 @@ class SentenceEmbedder(object):
                 global_step += 1
 
 
->>>>>>> a245ffdef29cbb9d714c64ee4d2e7e8c99c903a2
+>>>>>> > a245ffdef29cbb9d714c64ee4d2e7e8c99c903a2
