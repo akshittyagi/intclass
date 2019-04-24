@@ -38,8 +38,8 @@ class SentenceEmbedder(object):
         self.epochs = epochs
         self.batch_size = batch_size
         self.neural_epochs = 5
-        # self.learning_rate = 1e-5
-        self.learning_rate = 3e-4
+        self.learning_rate = 1e-5
+        # self.learning_rate = 3e-4
         self.debug = debug
 
     def organise_data(self, mode='train', test_data=None):
@@ -421,21 +421,12 @@ class SentenceEmbedder(object):
             eval_loss += loss_fn(logits.view(-1, num_labels), label_ids.view(-1)).mean().item()
             eval_steps += 1
             if len(preds) == 0:
-                pred = logits.detach().cpu().numpy()
-                # print("0", pred)
-                print("0 shape", pred.shape)
-                preds = pred
+                preds = logits.detach().cpu().numpy()
             else:
                 pred = logits.detach().cpu().numpy()
-                # print("1", pred)
-                print("1 type", type(pred)) 
-                print("1 shape", pred.shape)
-                print("0 shape", preds.shape)
-                # print("1 type/shape", type(pred), pred.size())
                 preds = np.append(preds, pred, axis=0)
             
         eval_loss = eval_loss / eval_steps
-            # preds = preds[0]
         preds = np.argmax(preds, axis=1)
 
         acc = accuracy(preds, all_label_ids.numpy())
