@@ -102,6 +102,312 @@ class ThreeLayerBN(nn.Module):
         return 3, exit_3
 
 
+class FourLayerBN(nn.Module):
+
+    def __init__(self, input_dim, output_dim, dimensions, init_exit_weights):
+        super(FourLayerBN, self).__init__()
+        self.fc1 = nn.Linear(input_dim, dimensions[0])
+        self.exit_1 = nn.Linear(dimensions[0], output_dim)
+        self.scale_weight_1 = nn.Linear(1, 1)
+        self.fc2 = nn.Linear(dimensions[0], dimensions[1])
+        self.exit_2 = nn.Linear(dimensions[1], output_dim)
+        self.scale_weight_2 = nn.Linear(1, 1)
+        self.fc3 = nn.Linear(dimensions[1], dimensions[2])
+        self.exit_3 = nn.Linear(dimensions[2], output_dim)
+        self.scale_weight_3 = nn.Linear(1, 1)
+        self.fc4 = nn.Linear(dimensions[2], dimensions[3])
+        self.exit_4 = nn.Linear(dimensions[3], output_dim)
+        self.scale_weight_4 = nn.Linear(1, 1)
+        nn.init.kaiming_normal_(self.fc1.weight)
+        nn.init.kaiming_normal_(self.fc2.weight)
+        nn.init.kaiming_normal_(self.fc3.weight)
+        nn.init.kaiming_normal_(self.fc4.weight)
+        nn.init.kaiming_normal_(self.exit_1.weight)
+        nn.init.kaiming_normal_(self.exit_2.weight)
+        nn.init.kaiming_normal_(self.exit_3.weight)
+        nn.init.kaiming_normal_(self.exit_4.weight)
+        self.scale_weight_1.weight.data.fill_(init_exit_weights[0])
+        self.scale_weight_2.weight.data.fill_(init_exit_weights[1])
+        self.scale_weight_3.weight.data.fill_(init_exit_weights[2])
+        self.scale_weight_4.weight.data.fill_(init_exit_weights[3])
+        self.scale_weight_1.bias.data.fill_(0)
+        self.scale_weight_2.bias.data.fill_(0)
+        self.scale_weight_3.bias.data.fill_(0)
+        self.scale_weight_4.bias.data.fill_(0)
+        self.entropy_thresholds = [] * 4
+
+    def forward(self, x, y):
+        batch_size = x.shape[0]
+        x = F.relu(self.fc1(x))
+        exit_1 = self.exit_1(x)
+        sm_1 = F.softmax(exit_1)
+        neg_entropy_1 = torch.sum(torch.sum(torch.mul(sm_1, torch.log(sm_1)), dim=1)) / batch_size
+        loss_1 = self.scale_weight_1(F.cross_entropy(exit_1, y).reshape(1, 1))
+        x = F.relu(self.fc2(x))
+        exit_2 = self.exit_2(x)
+        sm_2 = F.softmax(exit_2)
+        neg_entropy_2 = torch.sum(torch.sum(torch.mul(sm_2, torch.log(sm_2)), dim=1)) / batch_size
+        loss_2 = self.scale_weight_2(F.cross_entropy(exit_2, y).reshape(1, 1))
+        x = F.relu(self.fc3(x))
+        exit_3 = self.exit_3(x)
+        sm_3 = F.softmax(exit_3)
+        neg_entropy_3 = torch.sum(torch.sum(torch.mul(sm_3, torch.log(sm_3)), dim=1)) / batch_size
+        loss_3 = self.scale_weight_3(F.cross_entropy(exit_3, y).reshape(1, 1))
+        x = F.relu(self.fc4(x))
+        exit_4 = self.exit_4(x)
+        sm_4 = F.softmax(exit_4)
+        neg_entropy_4 = torch.sum(torch.sum(torch.mul(sm_4, torch.log(sm_4)), dim=1)) / batch_size
+        loss_4 = self.scale_weight_4(F.cross_entropy(exit_4, y).reshape(1, 1))
+        return (loss_1 + loss_2 + loss_3 + loss_4) / 4, [neg_entropy_1.data.item(), neg_entropy_2.data.item(), neg_entropy_3.data.item(), neg_entropy_4.data.item()]
+
+    def set_entropy_thresholds(self, thresholds):
+        self.entropy_thresholds = thresholds
+
+    def forward_test(self, x):
+        x = F.relu(self.fc1(x))
+        exit_1 = self.exit_1(x)
+        sm_1 = F.softmax(exit_1, dim=0)
+        neg_entropy_1 = torch.sum(sm_1 * torch.log(sm_1))
+        if neg_entropy_1 < self.entropy_thresholds[0]:
+            return 1, exit_1
+        x = F.relu(self.fc2(x))
+        exit_2 = self.exit_2(x)
+        sm_2 = F.softmax(exit_2, dim=0)
+        neg_entropy_2 = torch.sum(sm_2 * torch.log(sm_2))
+        if neg_entropy_2 < self.entropy_thresholds[1]:
+            return 2, exit_2
+        x = F.relu(self.fc3(x))
+        exit_3 = self.exit_3(x)
+        sm_3 = F.softmax(exit_3, dim=0)
+        neg_entropy_3 = torch.sum(sm_3 * torch.log(sm_3))
+        if neg_entropy_3 < self.entropy_thresholds[2]:
+            return 3, exit_3
+        x = F.relu(self.fc4(x))
+        exit_4 = self.exit_4(x)
+        return 4, exit_4
+
+class FiveLayerBN(nn.Module):
+
+    def __init__(self, input_dim, output_dim, dimensions, init_exit_weights):
+        super(FiveLayerBN, self).__init__()
+        self.fc1 = nn.Linear(input_dim, dimensions[0])
+        self.exit_1 = nn.Linear(dimensions[0], output_dim)
+        self.scale_weight_1 = nn.Linear(1, 1)
+        self.fc2 = nn.Linear(dimensions[0], dimensions[1])
+        self.exit_2 = nn.Linear(dimensions[1], output_dim)
+        self.scale_weight_2 = nn.Linear(1, 1)
+        self.fc3 = nn.Linear(dimensions[1], dimensions[2])
+        self.exit_3 = nn.Linear(dimensions[2], output_dim)
+        self.scale_weight_3 = nn.Linear(1, 1)
+        self.fc4 = nn.Linear(dimensions[2], dimensions[3])
+        self.exit_4 = nn.Linear(dimensions[3], output_dim)
+        self.scale_weight_4 = nn.Linear(1, 1)
+        self.fc5 = nn.Linear(dimensions[3], dimensions[4])
+        self.exit_5 = nn.Linear(dimensions[4], output_dim)
+        self.scale_weight_5 = nn.Linear(1, 1)
+        nn.init.kaiming_normal_(self.fc1.weight)
+        nn.init.kaiming_normal_(self.fc2.weight)
+        nn.init.kaiming_normal_(self.fc3.weight)
+        nn.init.kaiming_normal_(self.fc4.weight)
+        nn.init.kaiming_normal_(self.fc5.weight)
+        nn.init.kaiming_normal_(self.exit_1.weight)
+        nn.init.kaiming_normal_(self.exit_2.weight)
+        nn.init.kaiming_normal_(self.exit_3.weight)
+        nn.init.kaiming_normal_(self.exit_4.weight)
+        nn.init.kaiming_normal_(self.exit_5.weight)
+        self.scale_weight_1.weight.data.fill_(init_exit_weights[0])
+        self.scale_weight_2.weight.data.fill_(init_exit_weights[1])
+        self.scale_weight_3.weight.data.fill_(init_exit_weights[2])
+        self.scale_weight_4.weight.data.fill_(init_exit_weights[3])
+        self.scale_weight_5.weight.data.fill_(init_exit_weights[4])
+        self.scale_weight_1.bias.data.fill_(0)
+        self.scale_weight_2.bias.data.fill_(0)
+        self.scale_weight_3.bias.data.fill_(0)
+        self.scale_weight_4.bias.data.fill_(0)
+        self.scale_weight_5.bias.data.fill_(0)
+        self.entropy_thresholds = [] * 5
+
+    def forward(self, x, y):
+        batch_size = x.shape[0]
+        x = F.relu(self.fc1(x))
+        exit_1 = self.exit_1(x)
+        sm_1 = F.softmax(exit_1)
+        neg_entropy_1 = torch.sum(torch.sum(torch.mul(sm_1, torch.log(sm_1)), dim=1)) / batch_size
+        loss_1 = self.scale_weight_1(F.cross_entropy(exit_1, y).reshape(1, 1))
+        x = F.relu(self.fc2(x))
+        exit_2 = self.exit_2(x)
+        sm_2 = F.softmax(exit_2)
+        neg_entropy_2 = torch.sum(torch.sum(torch.mul(sm_2, torch.log(sm_2)), dim=1)) / batch_size
+        loss_2 = self.scale_weight_2(F.cross_entropy(exit_2, y).reshape(1, 1))
+        x = F.relu(self.fc3(x))
+        exit_3 = self.exit_3(x)
+        sm_3 = F.softmax(exit_3)
+        neg_entropy_3 = torch.sum(torch.sum(torch.mul(sm_3, torch.log(sm_3)), dim=1)) / batch_size
+        loss_3 = self.scale_weight_3(F.cross_entropy(exit_3, y).reshape(1, 1))
+        x = F.relu(self.fc4(x))
+        exit_4 = self.exit_4(x)
+        sm_4 = F.softmax(exit_4)
+        neg_entropy_4 = torch.sum(torch.sum(torch.mul(sm_4, torch.log(sm_4)), dim=1)) / batch_size
+        loss_4 = self.scale_weight_4(F.cross_entropy(exit_4, y).reshape(1, 1))
+        x = F.relu(self.fc5(x))
+        exit_5 = self.exit_5(x)
+        sm_5 = F.softmax(exit_5)
+        neg_entropy_5 = torch.sum(torch.sum(torch.mul(sm_5, torch.log(sm_5)), dim=1)) / batch_size
+        loss_5 = self.scale_weight_5(F.cross_entropy(exit_5, y).reshape(1, 1))
+        return (loss_1 + loss_2 + loss_3 + loss_4 + loss_5) / 5, [neg_entropy_1.data.item(), neg_entropy_2.data.item(), neg_entropy_3.data.item(), neg_entropy_4.data.item(), neg_entropy_5.data.item()]
+
+    def set_entropy_thresholds(self, thresholds):
+        self.entropy_thresholds = thresholds
+
+    def forward_test(self, x):
+        x = F.relu(self.fc1(x))
+        exit_1 = self.exit_1(x)
+        sm_1 = F.softmax(exit_1, dim=0)
+        neg_entropy_1 = torch.sum(sm_1 * torch.log(sm_1))
+        if neg_entropy_1 < self.entropy_thresholds[0]:
+            return 1, exit_1
+        x = F.relu(self.fc2(x))
+        exit_2 = self.exit_2(x)
+        sm_2 = F.softmax(exit_2, dim=0)
+        neg_entropy_2 = torch.sum(sm_2 * torch.log(sm_2))
+        if neg_entropy_2 < self.entropy_thresholds[1]:
+            return 2, exit_2
+        x = F.relu(self.fc3(x))
+        exit_3 = self.exit_3(x)
+        sm_3 = F.softmax(exit_3, dim=0)
+        neg_entropy_3 = torch.sum(sm_3 * torch.log(sm_3))
+        if neg_entropy_3 < self.entropy_thresholds[2]:
+            return 3, exit_3
+        x = F.relu(self.fc4(x))
+        exit_4 = self.exit_4(x)
+        sm_4 = F.softmax(exit_4, dim=0)
+        neg_entropy_4 = torch.sum(sm_4 * torch.log(sm_4))
+        if neg_entropy_4 < self.entropy_thresholds[3]:
+            return 4, exit_4
+        x = F.relu(self.fc5(x))
+        exit_5 = self.exit_5(x)
+        return 5, exit_5
+
+class SixLayerBN(nn.Module):
+
+    def __init__(self, input_dim, output_dim, dimensions, init_exit_weights):
+        super(SixLayerBN, self).__init__()
+        self.fc1 = nn.Linear(input_dim, dimensions[0])
+        self.exit_1 = nn.Linear(dimensions[0], output_dim)
+        self.scale_weight_1 = nn.Linear(1, 1)
+        self.fc2 = nn.Linear(dimensions[0], dimensions[1])
+        self.exit_2 = nn.Linear(dimensions[1], output_dim)
+        self.scale_weight_2 = nn.Linear(1, 1)
+        self.fc3 = nn.Linear(dimensions[1], dimensions[2])
+        self.exit_3 = nn.Linear(dimensions[2], output_dim)
+        self.scale_weight_3 = nn.Linear(1, 1)
+        self.fc4 = nn.Linear(dimensions[2], dimensions[3])
+        self.exit_4 = nn.Linear(dimensions[3], output_dim)
+        self.scale_weight_4 = nn.Linear(1, 1)
+        self.fc5 = nn.Linear(dimensions[3], dimensions[4])
+        self.exit_5 = nn.Linear(dimensions[4], output_dim)
+        self.scale_weight_5 = nn.Linear(1, 1)
+        self.fc6 = nn.Linear(dimensions[4], dimensions[5])
+        self.exit_6 = nn.Linear(dimensions[5], output_dim)
+        self.scale_weight_6 = nn.Linear(1, 1)
+        nn.init.kaiming_normal_(self.fc1.weight)
+        nn.init.kaiming_normal_(self.fc2.weight)
+        nn.init.kaiming_normal_(self.fc3.weight)
+        nn.init.kaiming_normal_(self.fc4.weight)
+        nn.init.kaiming_normal_(self.fc5.weight)
+        nn.init.kaiming_normal_(self.fc6.weight)
+        nn.init.kaiming_normal_(self.exit_1.weight)
+        nn.init.kaiming_normal_(self.exit_2.weight)
+        nn.init.kaiming_normal_(self.exit_3.weight)
+        nn.init.kaiming_normal_(self.exit_4.weight)
+        nn.init.kaiming_normal_(self.exit_5.weight)
+        nn.init.kaiming_normal_(self.exit_6.weight)
+        self.scale_weight_1.weight.data.fill_(init_exit_weights[0])
+        self.scale_weight_2.weight.data.fill_(init_exit_weights[1])
+        self.scale_weight_3.weight.data.fill_(init_exit_weights[2])
+        self.scale_weight_4.weight.data.fill_(init_exit_weights[3])
+        self.scale_weight_5.weight.data.fill_(init_exit_weights[4])
+        self.scale_weight_6.weight.data.fill_(init_exit_weights[5])
+        self.scale_weight_1.bias.data.fill_(0)
+        self.scale_weight_2.bias.data.fill_(0)
+        self.scale_weight_3.bias.data.fill_(0)
+        self.scale_weight_4.bias.data.fill_(0)
+        self.scale_weight_5.bias.data.fill_(0)
+        self.scale_weight_6.bias.data.fill_(0)
+        self.entropy_thresholds = [] * 6
+
+    def forward(self, x, y):
+        batch_size = x.shape[0]
+        x = F.relu(self.fc1(x))
+        exit_1 = self.exit_1(x)
+        sm_1 = F.softmax(exit_1)
+        neg_entropy_1 = torch.sum(torch.sum(torch.mul(sm_1, torch.log(sm_1)), dim=1)) / batch_size
+        loss_1 = self.scale_weight_1(F.cross_entropy(exit_1, y).reshape(1, 1))
+        x = F.relu(self.fc2(x))
+        exit_2 = self.exit_2(x)
+        sm_2 = F.softmax(exit_2)
+        neg_entropy_2 = torch.sum(torch.sum(torch.mul(sm_2, torch.log(sm_2)), dim=1)) / batch_size
+        loss_2 = self.scale_weight_2(F.cross_entropy(exit_2, y).reshape(1, 1))
+        x = F.relu(self.fc3(x))
+        exit_3 = self.exit_3(x)
+        sm_3 = F.softmax(exit_3)
+        neg_entropy_3 = torch.sum(torch.sum(torch.mul(sm_3, torch.log(sm_3)), dim=1)) / batch_size
+        loss_3 = self.scale_weight_3(F.cross_entropy(exit_3, y).reshape(1, 1))
+        x = F.relu(self.fc4(x))
+        exit_4 = self.exit_4(x)
+        sm_4 = F.softmax(exit_4)
+        neg_entropy_4 = torch.sum(torch.sum(torch.mul(sm_4, torch.log(sm_4)), dim=1)) / batch_size
+        loss_4 = self.scale_weight_4(F.cross_entropy(exit_4, y).reshape(1, 1))
+        x = F.relu(self.fc5(x))
+        exit_5 = self.exit_5(x)
+        sm_5 = F.softmax(exit_5)
+        neg_entropy_5 = torch.sum(torch.sum(torch.mul(sm_5, torch.log(sm_5)), dim=1)) / batch_size
+        loss_5 = self.scale_weight_5(F.cross_entropy(exit_5, y).reshape(1, 1))
+        x = F.relu(self.fc6(x))
+        exit_6 = self.exit_6(x)
+        sm_6 = F.softmax(exit_6)
+        neg_entropy_6 = torch.sum(torch.sum(torch.mul(sm_6, torch.log(sm_6)), dim=1)) / batch_size
+        loss_6 = self.scale_weight_6(F.cross_entropy(exit_6, y).reshape(1, 1))
+        return (loss_1 + loss_2 + loss_3 + loss_4 + loss_5 + loss_6) / 6, [neg_entropy_1.data.item(), neg_entropy_2.data.item(), neg_entropy_3.data.item(), neg_entropy_4.data.item(), neg_entropy_5.data.item(), neg_entropy_6.data.item()]
+
+    def set_entropy_thresholds(self, thresholds):
+        self.entropy_thresholds = thresholds
+
+    def forward_test(self, x):
+        x = F.relu(self.fc1(x))
+        exit_1 = self.exit_1(x)
+        sm_1 = F.softmax(exit_1, dim=0)
+        neg_entropy_1 = torch.sum(sm_1 * torch.log(sm_1))
+        if neg_entropy_1 < self.entropy_thresholds[0]:
+            return 1, exit_1
+        x = F.relu(self.fc2(x))
+        exit_2 = self.exit_2(x)
+        sm_2 = F.softmax(exit_2, dim=0)
+        neg_entropy_2 = torch.sum(sm_2 * torch.log(sm_2))
+        if neg_entropy_2 < self.entropy_thresholds[1]:
+            return 2, exit_2
+        x = F.relu(self.fc3(x))
+        exit_3 = self.exit_3(x)
+        sm_3 = F.softmax(exit_3, dim=0)
+        neg_entropy_3 = torch.sum(sm_3 * torch.log(sm_3))
+        if neg_entropy_3 < self.entropy_thresholds[2]:
+            return 3, exit_3
+        x = F.relu(self.fc4(x))
+        exit_4 = self.exit_4(x)
+        sm_4 = F.softmax(exit_4, dim=0)
+        neg_entropy_4 = torch.sum(sm_4 * torch.log(sm_4))
+        if neg_entropy_4 < self.entropy_thresholds[3]:
+            return 4, exit_4
+        x = F.relu(self.fc5(x))
+        exit_5 = self.exit_5(x)
+        sm_5 = F.softmax(exit_5, dim=0)
+        neg_entropy_5 = torch.sum(sm_5 * torch.log(sm_5))
+        if neg_entropy_5 < self.entropy_thresholds[4]:
+            return 5, exit_5
+        x = F.relu(self.fc6(x))
+        exit_6 = self.exit_6(x)
+        return 6, exit_6
+
 class StackedLSTM(nn.Module):
 
     def __init__(self, output_dim, hidden_dim=1200, embedding_dim=300, num_layers=3):

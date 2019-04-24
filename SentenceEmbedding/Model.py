@@ -11,7 +11,7 @@ from torch.autograd.variable import Variable
 from torch.nn.utils import clip_grad_norm_
 
 from Embeddings import Embed
-from Neural import SingleLayer, ThreeLayer, StackedLSTM, ThreeLayerBN, StackedLSTMBN
+from Neural import SingleLayer, ThreeLayer, StackedLSTM, ThreeLayerBN, StackedLSTMBN, FourLayerBN, FiveLayerBN, SixLayerBN
 from utils import get_branchy_exit_weights, get_entropy_thresholds, accuracy
 from sklearn.metrics import f1_score
 
@@ -27,7 +27,7 @@ class SentenceEmbedder(object):
         self.epochs = epochs
         self.batch_size = batch_size
         self.neural_epochs = 5
-        self.learning_rate = 1e-3
+        self.learning_rate = 3e-4
         self.debug = debug
 
     def organise_data(self, mode='train', test_data=None):
@@ -134,8 +134,8 @@ class SentenceEmbedder(object):
             model = StackedLSTM(output_dim=len(self.hashed_classes), embedding_dim=self.dim)
         elif model_type == 'feed_forward_bn':
             entropies = []
-            exit_weights = get_branchy_exit_weights(num=3, span=[0, 1])
-            model = ThreeLayerBN(input_dim=self.dim, output_dim=len(self.hashed_classes), dimensions=[100, 75, 50], init_exit_weights=exit_weights)
+            exit_weights = get_branchy_exit_weights(num=6, span=[0, 1])
+            model = SixLayerBN(input_dim=self.dim, output_dim=len(self.hashed_classes), dimensions=[100, 75, 50, 40, 25, 20], init_exit_weights=exit_weights)
         else:
             entropies = []
             exit_weights = get_branchy_exit_weights(num=3, span=[0, 1])

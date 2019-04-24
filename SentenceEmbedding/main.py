@@ -20,13 +20,18 @@ if __name__ == "__main__":
     # sentence_embedder = SentenceEmbedder(train_data=data_train, dev_data=data_dev, epochs=epoch, batch_size=128, debug=True)
     # sentence_embedder.train(data_train, data_dev, model_type='recurrent_bn')
     # sentence_embedder.test(data_test, model_type='recurrent_bn')
+    
+    # ep_list = [5, 10, 15]
+    # cl_list = [0, 0.5, 1, 5, 10, 50, 100]
+    ep_list = [6]
+    cl_list = [0]
 
-    for ep in [5, 10, 15]:
-        for cl in [0, 0.5, 1, 5, 10, 50, 100]:
+    for ep in ep_list:
+        for cl in cl_list:
             sentence_embedder = SentenceEmbedder(train_data=data_train, dev_data=data_dev, epochs=ep, batch_size=128, debug=True)
             print('Training for {} epochs with clipping parameter {}'.format(ep, cl))
-            sentence_embedder.train(data_train, data_dev, clip=cl, model_type='recurrent_bn')
-            sentence_embedder.test(data_test, model_type='recurrent_bn')
+            sentence_embedder.train(data_train, data_dev, model_type='feed_forward_bn')
+            sentence_embedder.test(data_test, model_type='forward_bn')
             os.remove('bn_av_sent_emb_3_layer_glove.MODEL')
             print('File removed')
 
