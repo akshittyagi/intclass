@@ -37,7 +37,7 @@ class SentenceEmbedder(object):
         self.epochs = epochs
         self.batch_size = batch_size
         self.neural_epochs = 5
-        self.learning_rate = 1e-3
+        self.learning_rate = 1e-5
         self.debug = debug
 
     def organise_data(self, mode='train', test_data=None):
@@ -289,7 +289,7 @@ class SentenceEmbedder(object):
         print("F1 macro: ", f1_score(y, pred, average='macro'))
         print("F1 micro: ", f1_score(y, pred, average='micro'))
 
-    def train_bert(self):
+    def train_bert(self, test_data):
         zipped_data_tr = list(zip(*self.tr))
         classes_tr = list(zipped_data_tr[1])
         classes_uniq = list(set(classes_tr))
@@ -309,6 +309,8 @@ class SentenceEmbedder(object):
 
         if self.n_gpu and self.n_gpu > 1:
             model = torch.nn.DataParallel(model)
+
+        print("n_gpu: {}".format(self.n_gpu))
 
         param_optimizer = list(model.named_parameters())
         no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
@@ -370,5 +372,61 @@ class SentenceEmbedder(object):
                 optimizer.step()
                 optimizer.zero_grad()
                 global_step += 1
+
+        filtered_tst_data = []
+        for ex in test_data:
+            if ex[1] not in self.hashed_classes:
+                continue
+            filtered_tst_data.append((ex[0], ex[1]))
+        
+        eval_examples = create_bert_examples(filtered_tst_data, 'test')
+        eval_features = bert_examples_to_features(eval_examples, classes_uniq, 75, tokenizer)
+
+        all_input_ids = torch.tensor([f.input_ids for f in eval_features], dtype=torch.long)
+        all_input_mask = torch.tensor([f.input_mask for f in eval_features], dtype=torch.long)
+        all_segment_ids = torch.tensor([f.segment_ids for f in eval_features], dtype=torch.long)
+        all_label_ids = torch.tensor([f.label_id for f in eval_features], dtype=torch.long)
+
+        eval_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label_ids)
+        eval_sampler = SequentialSampler(eval_data) # use all data
+        eval_dataloader = DataLoader(eval_data, sampler=eval_sampler, batch_size=self.batch_size)
+
+        model.eval()
+        eval_loss = 0
+        eval_steps = 0
+        preds = []
+
+        for input_ids, input_mask, segment_ids, label_ids in tqdm(eval_dataloader, desc="Evaluating"):
+            input_ids = input_ids.to(self.device)
+            input_mask = input_mask.to(self.device)
+            segment_ids = segment_ids.to(self.device)
+            label_ids = label_ids.to(self.device)
+
+            with torch.no_grad():
+                logits = model(input_ids, segment_ids, input_mask, labels=None)
+
+            loss_fn = CrossEntropyLoss()
+            eval_loss += loss_fn(logits.view(-1, num_labels), label_ids.view(-1)).mean().item()
+            eval_steps += 1
+            if len(preds) == 0:
+                pred = logits.detach().cpu().numpy()
+                # print("0", pred)
+                print("0 shape", pred.shape)
+                preds = pred
+            else:
+                pred = logits.detach().cpu().numpy()
+                # print("1", pred)
+                print("1 type", type(pred)) 
+                print("1 shape", pred.shape)
+                print("0 shape", preds.shape)
+                # print("1 type/shape", type(pred), pred.size())
+                preds = np.append(preds, pred, axis=0)
+            
+        eval_loss = eval_loss / eval_steps
+            # preds = preds[0]
+        preds = np.argmax(preds, axis=1)
+
+        acc = accuracy(preds, all_label_ids.numpy())
+        print("Accuracy: ", acc)
 
 

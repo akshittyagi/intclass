@@ -31,7 +31,7 @@ if __name__ == "__main__":
     #         print('File removed')
 
     sentence_embedder = SentenceEmbedder(train_data=data_train, dev_data=data_dev, epochs=epochs, batch_size=128, debug=True)
-    sentence_embedder.train_bert()
+    sentence_embedder.train_bert(data_test)
 
     # dataset_loc = "../DataSets/top-dataset-semantic-parsing/"
     # data_train, data_dev, data_test = data_loader(dataset_loc, dataset='fb')
