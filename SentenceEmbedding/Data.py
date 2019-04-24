@@ -8,6 +8,7 @@ import sklearn
 
 from utils import fb_top_intent
 
+
 class DataCleaner(object):
 
     def __init__(self, tokenization_type, dataset='fb'):
@@ -93,6 +94,23 @@ class DataCleaner(object):
                 lst.append((cleaned_line, curr_y))
         return lst
 
+class BERTInputExample(object):
+
+    def __init__(self, guid, text_a, text_b=None, label=None):
+        self.guid = guid
+        self.text_a = text_a
+        self.text_b = text_b
+        self.label=label
+
+
+class BERTInputFeatures(object):
+    
+    def __init__(self, input_ids, input_mask, segment_ids, label_id):
+        self.input_ids = input_ids
+        self.input_mask = input_mask
+        self.segment_ids = segment_ids
+        self.label_id = label_id
+
 def split_data(tr, split=0.8):
     N = len(tr)
     tr, dev = tr[:int(split * N)], tr[int(split * N):]
@@ -102,3 +120,61 @@ def data_loader(path, dataset='fb'):
     dataCleaner = DataCleaner(tokenization_type=1, dataset=dataset)
     data_tr, data_dev, data_tst = dataCleaner.clean_data(path)
     return data_tr, data_dev, data_tst
+
+def create_bert_examples(lines, set_type):
+    examples = []
+    for i, line in enumerate(lines):
+        examples.append(
+            BERTInputExample(
+                guid='%s-%s' % (set_type, i),
+                text_a=line[0],
+                label=line[1]
+            )
+        )
+    return examples
+
+def bert_examples_to_features(examples, label_list, max_seq_len, tokenizer):
+    label_map = {label : i for i, label in enumerate(label_list)}
+
+    features = []
+    for ex_idx, ex in enumerate(examples):
+        tokens_a = tokenizer.tokenize(ex.text_a)
+
+        if len(tokens_a) > max_seq_len - 2:
+            tokens_a = token_a[:(max_seq_len - 2)]
+
+        tokens = ['[CLS]'] + tokens_a + ['[SEP]']
+
+        segment_ids = [0] * len(tokens)
+        input_ids = tokenizer.convert_tokens_to_ids(tokens)
+        input_mask = [1] * len(input_ids)
+
+        padding = [0] * (max_seq_len - len(input_ids))
+        input_ids += padding
+        input_mask += padding
+        segment_ids += padding
+
+        assert len(input_ids) == max_seq_len
+        assert len(input_mask) == max_seq_len
+        assert len(segment_ids) == max_seq_len
+
+        label_id = label_map[ex.label]
+
+        if ex_idx < 5:
+            print('Example {}'.format(ex_idx))
+            print('guid: {}'.format(ex.guid))
+            print('tokens: {}'.format(' '.join([str(x) for x in tokens])))
+            print('input_ids: {}'.format(' '.join([str(x) for x in input_mask])))
+            print('segment_ids: {}'.format(' '.join([str(x) for x in segment_ids])))
+            print('label: {}, label_id: {}'.format(ex.label, label_id))
+
+        features.append(
+            BERTInputFeatures(
+                input_ids=input_ids,
+                input_mask=input_mask,
+                segment_ids=segment_ids,
+                label_id=label_id
+            )
+        )
+
+    return features
