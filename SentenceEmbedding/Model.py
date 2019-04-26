@@ -15,7 +15,7 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.nn import CrossEntropyLoss
 
 from Embeddings import Embed
-from Neural import SingleLayer, ThreeLayer, StackedLSTM, ThreeLayerBN, StackedLSTMBN, FourLayerBN, FiveLayerBN, SixLayerBN
+from Neural import SingleLayer, ThreeLayer, StackedLSTM, ThreeLayerBN, StackedLSTMBN, FourLayerBN, FiveLayerBN, SixLayerBN, BertEarlyExit
 from utils import get_branchy_exit_weights, get_entropy_thresholds, accuracy
 from sklearn.metrics import f1_score
 
@@ -311,9 +311,12 @@ class SentenceEmbedder(object):
         train_examples = create_bert_examples(self.tr, 'train')
         num_train_opt_steps = int(len(train_examples) / self.batch_size) * self.epochs
         num_labels = len(self.hashed_classes)
-        model = BertForSequenceClassification.from_pretrained('bert-base-uncased',
-                                                              cache_dir='./bert_cache/',
-                                                              num_labels=num_labels)
+        # model = BertForSequenceClassification.from_pretrained('bert-base-uncased',
+        #                                                       cache_dir='./bert_cache/',
+        #                                                       num_labels=num_labels)
+        model = BertEarlyExit.from_pretrained('bert-base-uncased',
+                                                cache_dir='./bert_cache/',
+                                                num_labels=num_labels)
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         if self.device == torch.device('cuda'):
             self.n_gpu = torch.cuda.device_count()
@@ -431,3 +434,8 @@ class SentenceEmbedder(object):
 
         acc = accuracy(preds, all_label_ids.numpy())
         print("Accuracy: ", acc)
+        f1_mac = f1_score(all_label_ids.numpy(), preds, average='macro')
+        f1_mic = f1_score(all_label_ids.numpy(), preds, average='micro')
+        print("F1 macro: ", f1_mac)
+        print("F1 micro: ", f1_mic)
+        return acc, f1_mac, f1_mic

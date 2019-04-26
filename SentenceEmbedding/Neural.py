@@ -4,6 +4,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
+from torch.nn import CrossEntropyLoss
+from pytorch_pretrained_bert.modeling import BertForSequenceClassification, BertConfig, BertModel, BertPreTrainedModel
+
 
 class SingleLayer(nn.Module):
 
@@ -510,3 +513,26 @@ class StackedLSTMBN(nn.Module):
                 return i, exit_i
 
         return i, exit_i
+
+
+class BertEarlyExit(BertPreTrainedModel):
+
+    def __init__(self, config, num_labels):
+        super(BertEarlyExit, self).__init__(config)
+        self.num_labels = num_labels
+        self.bert = BertModel(config)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.classifier = nn.Linear(config.hidden_size, num_labels)
+        self.apply(self.init_bert_weights)
+
+    def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None):
+        encoded_layers, pooled_output = self.bert(input_ids, token_type_ids, attention_mask)
+        pooled_output = self.dropout(pooled_output)
+        logits = self.classifier(pooled_output)
+
+        if labels is not None:
+            loss_fn = CrossEntropyLoss()
+            loss = loss_fn(logits.view(-1, self.num_labels), labels.view(-1))
+            return loss
+        else:
+            return logits
