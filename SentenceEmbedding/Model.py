@@ -314,6 +314,7 @@ class SentenceEmbedder(object):
         # model = BertForSequenceClassification.from_pretrained('bert-base-uncased',
         #                                                       cache_dir='./bert_cache/',
         #                                                       num_labels=num_labels)
+        exit_weights = get_branchy_exit_weights(num=2, span=[0, 1])
         model = BertEarlyExit.from_pretrained('bert-base-uncased',
                                                 cache_dir='./bert_cache/',
                                                 num_labels=num_labels)
@@ -364,13 +365,17 @@ class SentenceEmbedder(object):
         for i in trange(self.epochs, desc="Epoch"):
             tr_loss = 0
             num_tr_examples, tr_steps = 0, 0
+            ave_loss = 0.
             for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration")):
                 batch = tuple(t.to(self.device) for t in batch)
                 input_ids, input_mask, segment_ids, label_ids = batch
-                logits = model(input_ids, segment_ids, input_mask, labels=None)
+                loss = model(input_ids, segment_ids, input_mask, labels=label_ids)
 
-                loss_fn = CrossEntropyLoss()
-                loss = loss_fn(logits.view(-1, num_labels), label_ids.view(-1))
+                # loss_fn = CrossEntropyLoss()
+                # # loss = loss_fn(logits.view(-1, num_labels), label_ids.view(-1))
+                # loss_first = loss_fn(first_layer_logits.view(-1, num_labels), label_ids.view(-1))
+                # loss_last = loss_fn(first_layer_logits.view(-1, num_labels), label_ids.view(-1))
+                
 
                 if self.n_gpu > 1:
                     loss = loss.mean()
@@ -378,6 +383,7 @@ class SentenceEmbedder(object):
                 if step % 10 == 0:
                     print('epoch {}, step {} loss: {}'.format(i, step, loss))
 
+                av_loss += loss.data.item()
                 loss.backward()
 
                 tr_loss += loss.item()
@@ -387,6 +393,7 @@ class SentenceEmbedder(object):
                 optimizer.step()
                 optimizer.zero_grad()
                 global_step += 1
+            print("Avg Epoch {} Loss: ".format(i), av_loss / len(batch))
 
         filtered_tst_data = []
         for ex in test_data:

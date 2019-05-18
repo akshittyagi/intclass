@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import numpy as np
 
 from torch.nn import CrossEntropyLoss
-from pytorch_pretrained_bert.modeling import BertForSequenceClassification, BertConfig, BertModel, BertPreTrainedModel
+from pytorch_pretrained_bert.modeling import BertForSequenceClassification, BertConfig, BertModel, BertPreTrainedModel, BertPooler
 
 
 class SingleLayer(nn.Module):
@@ -519,20 +519,40 @@ class BertEarlyExit(BertPreTrainedModel):
 
     def __init__(self, config, num_labels):
         super(BertEarlyExit, self).__init__(config)
+        self.config = config
         self.num_labels = num_labels
         self.bert = BertModel(config)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, num_labels)
+        self.pooler = BertPooler(config)
+        self.scale_weight_1 = nn.Linear(1, 1)
+        self.scale_weight_2 = nn.Linear(1, 1)
         self.apply(self.init_bert_weights)
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None):
         encoded_layers, pooled_output = self.bert(input_ids, token_type_ids, attention_mask)
-        pooled_output = self.dropout(pooled_output)
+
+        first_layer_pooled = self.dropout(self.pooler(encoded_layers[0]))
+        last_layer_pooled = self.dropout(self.pooler(encoded_layers[-1]))
+
+        first_layer_logits = self.classifier(first_layer_pooled)
+        last_layer_logits = self.classifier(last_layer_pooled)
+
+        loss_1 = self.scale_weight_1(F.cross_entropy(first_layer_logits, labels).reshape(1, 1))
+        loss_2 = self.scale_weight_2(F.cross_entropy(last_layer_logits, labels).reshape(1, 1))
+
+        print("pooled shape", first_layer_pooled.size())
+        print("logits shape", first_layer_logits.size())
+        print("hidden shape", self.config.hidden_size)
+
+        # pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
 
-        if labels is not None:
-            loss_fn = CrossEntropyLoss()
-            loss = loss_fn(logits.view(-1, self.num_labels), labels.view(-1))
-            return loss
-        else:
-            return logits
+        # if labels is not None:
+        #     loss_fn = CrossEntropyLoss()
+        #     loss = loss_fn(logits.view(-1, self.num_labels), labels.view(-1))
+        #     return loss
+        # else:
+        #     return first_layer_logits, last_layer_logits, logits
+
+        return (loss_1 + loss_2) / 2
